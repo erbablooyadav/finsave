@@ -1,0 +1,31 @@
+<resources>
+    <string name="app_name">FinSave</string>
+
+    <!-- Onboarding: Screen 1 -->
+    <string name="onboarding_privacy_title">Your money. Your secret.</string>
+    <string name="onboarding_privacy_desc">FinSave works entirely on your phone.\nWe never upload your data to any server.</string>
+    <string name="onboarding_privacy_btn">Continue to FinSave</string>
+
+    <!-- Onboarding: Screen 2 -->
+    <string name="onboarding_how_title">Zero Manual Entry</string>
+    <string name="onboarding_how_desc">FinSave reads transaction SMS from your bank to automatically track expenses.\nNo bank login required.</string>
+    <string name="onboarding_how_btn">See how it works</string>
+
+    <!-- Onboarding: Screen 3 -->
+    <string name="onboarding_sms_title">Allow SMS Access</string>
+    <string name="onboarding_sms_desc">We need SMS permission to auto-import your bank transactions. Your messages never leave this device.</string>
+    <string name="onboarding_sms_btn_grant">Grant Permission</string>
+    <string name="onboarding_sms_btn_deny">Not Now</string>
+
+    <!-- Onboarding: Screen 4 -->
+    <string name="onboarding_region_title">Setup your region</string>
+    <string name="onboarding_region_desc">FinSave defaults to India (INR). You can change this later in settings.</string>
+    <string name="onboarding_region_btn">Set to India (INR)</string>
+
+    <!-- Onboarding: Screen 5 -->
+    <string name="onboarding_notif_title">Stay on track</string>
+    <string name="onboarding_notif_desc">Enable notifications for the nightly 10 PM budget digest and expense alerts.</string>
+    <string name="onboarding_notif_btn">Enable Notifications</string>
+    
+    <string name="onboarding_done_btn">Start Saving</string>
+</resources>

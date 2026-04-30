@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FinSave</string>
+
+    <!-- Onboarding: Screen 1 -->
+    <string name="onboarding_privacy_title">आपका पैसा। आपका राज़।</string>
+    <string name="onboarding_privacy_desc">FinSave पूरी तरह से आपके फोन पर काम करता है।\nहम आपका डेटा कभी किसी सर्वर पर अपलोड नहीं करते।</string>
+    <string name="onboarding_privacy_btn">FinSave शुरू करें</string>
+
+    <!-- Onboarding: Screen 2 -->
+    <string name="onboarding_how_title">कोई मैन्युअल एंट्री नहीं</string>
+    <string name="onboarding_how_desc">FinSave आपके खर्चों को ट्रैक करने के लिए आपके बैंक लेनदेन SMS पढ़ता है।\nकिसी बैंक लॉगिन की आवश्यकता नहीं है।</string>
+    <string name="onboarding_how_btn">देखें यह कैसे काम करता है</string>
+
+    <!-- Onboarding: Screen 3 -->
+    <string name="onboarding_sms_title">SMS एक्सेस की अनुमति दें</string>
+    <string name="onboarding_sms_desc">आपके बैंक लेनदेन को ऑटो-इम्पोर्ट करने के लिए हमें SMS अनुमति चाहिए। आपके संदेश कभी इस डिवाइस से बाहर नहीं जाते।</string>
+    <string name="onboarding_sms_btn_grant">अनुमति दें</string>
+    <string name="onboarding_sms_btn_deny">अभी नहीं</string>
+
+    <!-- Onboarding: Screen 4 -->
+    <string name="onboarding_region_title">अपना क्षेत्र सेट करें</string>
+    <string name="onboarding_region_desc">FinSave डिफ़ॉल्ट रूप से भारत (INR) पर सेट है। आप इसे बाद में सेटिंग्स में बदल सकते हैं।</string>
+    <string name="onboarding_region_btn">भारत (INR) पर सेट करें</string>
+
+    <!-- Onboarding: Screen 5 -->
+    <string name="onboarding_notif_title">ट्रैक पर रहें</string>
+    <string name="onboarding_notif_desc">रात 10 बजे के बजट सारांश और खर्च अलर्ट के लिए सूचनाएं चालू करें।</string>
+    <string name="onboarding_notif_btn">सूचनाएं चालू करें</string>
+    
+    <string name="onboarding_done_btn">बचत शुरू करें</string>
+</resources>

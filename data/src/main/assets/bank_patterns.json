@@ -1,0 +1,251 @@
+{
+  "version": 1,
+  "lastUpdated": "2025-04-28",
+  "banks": [
+    {
+      "bankName": "HDFC Bank",
+      "senderIds": ["HDFCBK", "HDFCBN", "HDFCBANK"],
+      "patterns": [
+        {
+          "type": "DEBIT",
+          "regex": "(?:debited|withdrawn|spent|paid).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1,
+          "merchantRegex": "(?:to|at|for)\\s+([A-Za-z0-9\\s\\.\\-]+?)(?:\\s+on|\\s+Ref|\\.|$)",
+          "upiRegex": "(?:VPA|UPI)\\s*[:\\-]?\\s*([a-zA-Z0-9.\\-]+@[a-zA-Z]+)"
+        },
+        {
+          "type": "CREDIT",
+          "regex": "(?:credited|received|deposited).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1,
+          "merchantRegex": "(?:from|by)\\s+([A-Za-z0-9\\s\\.\\-]+?)(?:\\s+on|\\s+Ref|\\.|$)"
+        }
+      ]
+    },
+    {
+      "bankName": "ICICI Bank",
+      "senderIds": ["ICICIB", "ICICIBK", "ICICBANK"],
+      "patterns": [
+        {
+          "type": "DEBIT",
+          "regex": "(?:debited|spent).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1,
+          "merchantRegex": "(?:to|at)\\s+([A-Za-z0-9\\s\\.\\-]+?)(?:\\s+on|\\s+Ref|\\.|$)",
+          "upiRegex": "(?:VPA|UPI)\\s*[:\\-]?\\s*([a-zA-Z0-9.\\-]+@[a-zA-Z]+)"
+        },
+        {
+          "type": "CREDIT",
+          "regex": "(?:credited|received).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1,
+          "merchantRegex": "(?:from|by)\\s+([A-Za-z0-9\\s\\.\\-]+?)(?:\\s+on|\\s+Ref|\\.|$)"
+        }
+      ]
+    },
+    {
+      "bankName": "State Bank of India",
+      "senderIds": ["SBIINB", "SBIIN", "ATMSBI", "SBIPSG"],
+      "patterns": [
+        {
+          "type": "DEBIT",
+          "regex": "(?:debited|withdrawn).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1,
+          "merchantRegex": "(?:to|transfer to)\\s+([A-Za-z0-9\\s\\.\\-]+?)(?:\\s+Ref|\\.|$)",
+          "upiRegex": "([a-zA-Z0-9.\\-]+@[a-zA-Z]+)"
+        },
+        {
+          "type": "CREDIT",
+          "regex": "(?:credited|deposited).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1,
+          "merchantRegex": "(?:from|by)\\s+([A-Za-z0-9\\s\\.\\-]+?)(?:\\s+Ref|\\.|$)"
+        }
+      ]
+    },
+    {
+      "bankName": "Axis Bank",
+      "senderIds": ["AXISBK", "AXISBNK"],
+      "patterns": [
+        {
+          "type": "DEBIT",
+          "regex": "(?:debited|spent|sent).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1,
+          "merchantRegex": "(?:to|at)\\s+([A-Za-z0-9\\s\\.\\-]+?)(?:\\s+on|\\s+Ref|\\.|$)",
+          "upiRegex": "(?:VPA|UPI)\\s*[:\\-]?\\s*([a-zA-Z0-9.\\-]+@[a-zA-Z]+)"
+        },
+        {
+          "type": "CREDIT",
+          "regex": "(?:credited|received).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1
+        }
+      ]
+    },
+    {
+      "bankName": "Kotak Mahindra Bank",
+      "senderIds": ["KOTAKB", "KOTAK"],
+      "patterns": [
+        {
+          "type": "DEBIT",
+          "regex": "(?:debited|withdrawn|paid).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1,
+          "merchantRegex": "(?:to|at)\\s+([A-Za-z0-9\\s\\.\\-]+?)(?:\\s+on|\\s+Ref|\\.|$)"
+        },
+        {
+          "type": "CREDIT",
+          "regex": "(?:credited|received).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1
+        }
+      ]
+    },
+    {
+      "bankName": "IndusInd Bank",
+      "senderIds": ["INDUSB", "INDBNK"],
+      "patterns": [
+        {
+          "type": "DEBIT",
+          "regex": "(?:debited|withdrawn).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1
+        },
+        {
+          "type": "CREDIT",
+          "regex": "(?:credited|received).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1
+        }
+      ]
+    },
+    {
+      "bankName": "Yes Bank",
+      "senderIds": ["YESBK", "YESBNK"],
+      "patterns": [
+        {
+          "type": "DEBIT",
+          "regex": "(?:debited|withdrawn).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1
+        },
+        {
+          "type": "CREDIT",
+          "regex": "(?:credited|received).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1
+        }
+      ]
+    },
+    {
+      "bankName": "Punjab National Bank",
+      "senderIds": ["PNBSMS", "PUNBNK"],
+      "patterns": [
+        {
+          "type": "DEBIT",
+          "regex": "(?:debited|withdrawn).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1
+        },
+        {
+          "type": "CREDIT",
+          "regex": "(?:credited|received).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1
+        }
+      ]
+    },
+    {
+      "bankName": "Bank of India",
+      "senderIds": ["BOIIND"],
+      "patterns": [
+        {
+          "type": "DEBIT",
+          "regex": "(?:debited|withdrawn).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1
+        },
+        {
+          "type": "CREDIT",
+          "regex": "(?:credited|received).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1
+        }
+      ]
+    },
+    {
+      "bankName": "Bank of Baroda",
+      "senderIds": ["BOBTXN", "BOBSMS"],
+      "patterns": [
+        {
+          "type": "DEBIT",
+          "regex": "(?:debited|withdrawn).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1
+        },
+        {
+          "type": "CREDIT",
+          "regex": "(?:credited|received).*?(?:Rs\\.?|INR|₹)\\s*([\\d,]+\\.?\\d*)",
+          "amountGroup": 1
+        }
+      ]
+    }
+  ],
+  "autoCategoryMappings": {
+    "zomato": "Food & Dining",
+    "swiggy": "Food & Dining",
+    "uber eats": "Food & Dining",
+    "dominos": "Food & Dining",
+    "mcdonalds": "Food & Dining",
+    "starbucks": "Food & Dining",
+    "kfc": "Food & Dining",
+    "uber": "Transport",
+    "ola": "Transport",
+    "rapido": "Transport",
+    "irctc": "Transport",
+    "metro": "Transport",
+    "petrol": "Transport",
+    "indian oil": "Transport",
+    "hp petrol": "Transport",
+    "bharat petroleum": "Transport",
+    "amazon": "Shopping",
+    "flipkart": "Shopping",
+    "myntra": "Shopping",
+    "ajio": "Shopping",
+    "meesho": "Shopping",
+    "nykaa": "Shopping",
+    "netflix": "Entertainment",
+    "hotstar": "Entertainment",
+    "spotify": "Entertainment",
+    "prime video": "Entertainment",
+    "jiocinema": "Entertainment",
+    "bookmyshow": "Entertainment",
+    "pvr": "Entertainment",
+    "electricity": "Bills & Utilities",
+    "gas bill": "Bills & Utilities",
+    "water bill": "Bills & Utilities",
+    "jio": "Bills & Utilities",
+    "airtel": "Bills & Utilities",
+    "vi ": "Bills & Utilities",
+    "bsnl": "Bills & Utilities",
+    "broadband": "Bills & Utilities",
+    "wifi": "Bills & Utilities",
+    "mseb": "Bills & Utilities",
+    "bescom": "Bills & Utilities",
+    "tatapower": "Bills & Utilities",
+    "apollo": "Health",
+    "pharmacy": "Health",
+    "medplus": "Health",
+    "practo": "Health",
+    "hospital": "Health",
+    "clinic": "Health",
+    "1mg": "Health",
+    "pharmeasy": "Health",
+    "netmeds": "Health",
+    "bigbasket": "Groceries",
+    "blinkit": "Groceries",
+    "zepto": "Groceries",
+    "dmart": "Groceries",
+    "reliance fresh": "Groceries",
+    "more supermarket": "Groceries",
+    "grofers": "Groceries",
+    "instamart": "Groceries",
+    "salary": "Salary",
+    "sal cr": "Salary",
+    "payroll": "Salary",
+    "emi": "EMI",
+    "loan": "EMI",
+    "insurance": "Insurance",
+    "lic": "Insurance",
+    "education": "Education",
+    "school": "Education",
+    "college": "Education",
+    "tuition": "Education",
+    "rent": "Rent",
+    "house rent": "Rent"
+  }
+}
