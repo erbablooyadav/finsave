@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -67,6 +68,14 @@ class GroupDetailViewModel @Inject constructor(
 
     private val _simplifiedDebts = MutableStateFlow<List<SimplifiedDebt>>(emptyList())
     val simplifiedDebts: StateFlow<List<SimplifiedDebt>> = _simplifiedDebts.asStateFlow()
+
+    val isGroupSettleable: StateFlow<Boolean> = combine(simplifiedDebts, expenses) { debts, expenseList ->
+        debts.isEmpty() && expenseList.isNotEmpty()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val isSettled: StateFlow<Boolean> = group
+        .map { it?.isSettled == true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     // UI state
     private val _uiState = MutableStateFlow(GroupDetailUiState())
@@ -197,6 +206,20 @@ class GroupDetailViewModel @Inject constructor(
             amountPaise = debt.amountPaise,
             transactionNote = note
         )
+    }
+
+    fun settleGroup() {
+        viewModelScope.launch {
+            val currentGroup = group.value ?: return@launch
+            try {
+                splitterRepository.updateGroup(
+                    currentGroup.copy(isSettled = true, isArchived = true)
+                )
+                _errorMessage.value = null
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Failed to settle group"
+            }
+        }
     }
 
     // Dialog control methods

@@ -21,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -43,8 +45,16 @@ fun TransactionsScreen(
     val selectedTransaction by viewModel.selectedTransaction.collectAsState()
     val deleteConfirmation by viewModel.deleteConfirmation.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
     var showAdvancedFilters by remember { mutableStateOf(false) }
     val collapsedMonths = remember { mutableStateMapOf<String, Boolean>() }
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.onClearError()
+        }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -83,19 +93,7 @@ fun TransactionsScreen(
                 )
             }
         },
-        snackbarHost = {
-            errorMessage?.let { message ->
-                Snackbar(
-                    action = {
-                        TextButton(onClick = viewModel::onClearError) {
-                            Text("Dismiss")
-                        }
-                    }
-                ) {
-                    Text(message)
-                }
-            }
-        }
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -316,7 +314,10 @@ private fun MonthHeader(
             Text(
                 text = "In: ${IndianNumberFormatter.format(monthCredit)}  Out: ${IndianNumberFormatter.format(monthDebit)}",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.semantics {
+                    contentDescription = "Income ${IndianNumberFormatter.formatForAccessibility(monthCredit)}, spending ${IndianNumberFormatter.formatForAccessibility(monthDebit)}"
+                }
             )
         }
     }
@@ -522,6 +523,14 @@ private fun TransactionRow(
                         TransactionType.DEBIT -> MaterialTheme.colorScheme.error
                         TransactionType.CREDIT -> Color(0xFF10B981)
                         TransactionType.TRANSFER -> MaterialTheme.colorScheme.onSurface
+                    },
+                    modifier = Modifier.semantics {
+                        val amountDescription = IndianNumberFormatter.formatForAccessibility(transaction.amountPaise)
+                        contentDescription = when (transaction.type) {
+                            TransactionType.DEBIT -> "Spent $amountDescription"
+                            TransactionType.CREDIT -> "Received $amountDescription"
+                            TransactionType.TRANSFER -> "Transferred $amountDescription"
+                        }
                     }
                 )
                 IconButton(

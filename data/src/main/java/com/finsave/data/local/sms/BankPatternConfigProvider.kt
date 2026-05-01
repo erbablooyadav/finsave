@@ -21,6 +21,17 @@ class BankPatternConfigProvider @Inject constructor(
     @Volatile
     private var cachedConfig: BankPatternConfig? = null
 
+    suspend fun warmCache() {
+        if (cachedConfig == null) {
+            cachedConfig = try {
+                configLoader.loadConfig()
+            } catch (e: Exception) {
+                Log.e("BankPatternConfig", "Failed to warm bank_patterns.json", e)
+                emptyConfig()
+            }
+        }
+    }
+
     fun getConfig(): BankPatternConfig {
         cachedConfig?.let { return it }
         return runBlocking {
@@ -28,13 +39,16 @@ class BankPatternConfigProvider @Inject constructor(
                 configLoader.loadConfig().also { cachedConfig = it }
             } catch (e: Exception) {
                 Log.e("BankPatternConfig", "Failed to load bank_patterns.json", e)
-                BankPatternConfig(
-                    version = 0,
-                    lastUpdated = "",
-                    banks = emptyList(),
-                    autoCategoryMappings = emptyMap()
-                )
+                emptyConfig().also { cachedConfig = it }
             }
         }
     }
+
+    private fun emptyConfig(): BankPatternConfig =
+        BankPatternConfig(
+            version = 0,
+            lastUpdated = "",
+            banks = emptyList(),
+            autoCategoryMappings = emptyMap()
+        )
 }

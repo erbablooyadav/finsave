@@ -3,6 +3,8 @@ package com.finsave.feature.splitter
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,8 +19,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -30,6 +35,7 @@ import com.finsave.domain.model.MemberBalance
 import com.finsave.domain.model.SimplifiedDebt
 import com.finsave.domain.model.SplitterExpense
 import com.finsave.domain.model.SplitterMember
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
 
@@ -60,12 +66,28 @@ fun GroupDetailScreen(
     val expenses by viewModel.expenses.collectAsStateWithLifecycle()
     val memberBalances by viewModel.memberBalances.collectAsStateWithLifecycle()
     val simplifiedDebts by viewModel.simplifiedDebts.collectAsStateWithLifecycle()
+    val isGroupSettleable by viewModel.isGroupSettleable.collectAsStateWithLifecycle()
+    val isSettled by viewModel.isSettled.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val showAddMemberDialog by viewModel.showAddMemberDialog.collectAsStateWithLifecycle()
     val showAddExpenseDialog by viewModel.showAddExpenseDialog.collectAsStateWithLifecycle()
     val memberToDelete by viewModel.memberToDelete.collectAsStateWithLifecycle()
 
     var selectedTab by remember { mutableIntStateOf(0) }
+    var showSettleConfirmation by remember { mutableStateOf(false) }
+    var showSettledOverlay by remember { mutableStateOf(false) }
+    val settledOverlayAlpha by animateFloatAsState(
+        targetValue = if (showSettledOverlay) 1f else 0f,
+        animationSpec = tween(durationMillis = 250),
+        label = "settledOverlayAlpha"
+    )
+
+    LaunchedEffect(showSettledOverlay) {
+        if (showSettledOverlay) {
+            delay(2_000)
+            onNavigateBack()
+        }
+    }
 
     // Show error snackbar
     val snackbarHostState = remember { SnackbarHostState() }
@@ -105,60 +127,92 @@ fun GroupDetailScreen(
                     }
                 }
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add")
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = if (selectedTab == 0) "Add member" else "Add expense"
+                )
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Tabs
-            TabRow(selectedTabIndex = selectedTab) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    text = { Text("Members") }
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    text = { Text("Expenses") }
-                )
-            }
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Tabs
+                TabRow(selectedTabIndex = selectedTab) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = { Text("Members") }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = { Text("Expenses") }
+                    )
+                }
 
-            // Tab content
-            when (selectedTab) {
-                0 -> MembersTab(
-                    members = members,
-                    memberBalances = memberBalances,
-                    simplifiedDebts = simplifiedDebts,
-                    groupName = group?.name ?: "",
-                    onRemoveMember = { viewModel.onRemoveMemberClick(it) },
-                    onSettleViaUpi = { debt ->
-                        val uri = viewModel.buildUpiUri(debt, group?.name ?: "")
-                        if (uri == null) {
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Invalid UPI details. Please update the member's UPI ID.")
-                            }
-                        } else {
-                            try {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
-                                context.startActivity(intent)
-                            } catch (e: ActivityNotFoundException) {
+                // Tab content
+                when (selectedTab) {
+                    0 -> MembersTab(
+                        members = members,
+                        memberBalances = memberBalances,
+                        simplifiedDebts = simplifiedDebts,
+                        groupName = group?.name ?: "",
+                        isGroupSettleable = isGroupSettleable,
+                        isSettled = isSettled,
+                        onRemoveMember = { viewModel.onRemoveMemberClick(it) },
+                        onSettleGroup = { showSettleConfirmation = true },
+                        onSettleViaUpi = { debt ->
+                            val uri = viewModel.buildUpiUri(debt, group?.name ?: "")
+                            if (uri == null) {
                                 coroutineScope.launch {
-                                    snackbarHostState.showSnackbar("No UPI app found. Please install Google Pay, PhonePe, or Paytm.")
+                                    snackbarHostState.showSnackbar("Invalid UPI details. Please update the member's UPI ID.")
+                                }
+                            } else {
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+                                    context.startActivity(intent)
+                                } catch (e: ActivityNotFoundException) {
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("No UPI app found. Please install Google Pay, PhonePe, or Paytm.")
+                                    }
                                 }
                             }
                         }
+                    )
+                    1 -> ExpensesTab(
+                        expenses = expenses,
+                        members = members
+                    )
+                }
+            }
+
+            if (showSettledOverlay) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.45f * settledOverlayAlpha))
+                        .alpha(settledOverlayAlpha),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Surface(
+                        shape = MaterialTheme.shapes.large,
+                        color = Color(0xFF16A34A),
+                        tonalElevation = 8.dp
+                    ) {
+                        Text(
+                            text = "All Settled!",
+                            modifier = Modifier.padding(horizontal = 32.dp, vertical = 24.dp),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
-                )
-                1 -> ExpensesTab(
-                    expenses = expenses,
-                    members = members
-                )
+                }
             }
         }
     }
@@ -194,6 +248,30 @@ fun GroupDetailScreen(
             }
         )
     }
+
+    if (showSettleConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showSettleConfirmation = false },
+            title = { Text("Settle & Archive Group?") },
+            text = { Text("This will mark the group as settled and move it to Settled Groups.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showSettleConfirmation = false
+                        viewModel.settleGroup()
+                        showSettledOverlay = true
+                    }
+                ) {
+                    Text("Settle")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSettleConfirmation = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 /**
@@ -206,7 +284,10 @@ private fun MembersTab(
     memberBalances: List<MemberBalance>,
     simplifiedDebts: List<SimplifiedDebt>,
     groupName: String,
+    isGroupSettleable: Boolean,
+    isSettled: Boolean,
     onRemoveMember: (SplitterMember) -> Unit,
+    onSettleGroup: () -> Unit,
     onSettleViaUpi: (SimplifiedDebt) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -230,7 +311,7 @@ private fun MembersTab(
                 )
             }
 
-            items(memberBalances, key = { it.member.id }) { balance ->
+            items(memberBalances, key = { "balance_${it.member.id}" }) { balance ->
                 MemberBalanceCard(
                     balance = balance,
                     onRemove = { onRemoveMember(balance.member) }
@@ -249,7 +330,7 @@ private fun MembersTab(
                 )
             }
 
-            items(simplifiedDebts) { debt ->
+            items(simplifiedDebts, key = { "debt_${it.fromMember.id}_${it.toMember.id}" }) { debt ->
                 SimplifiedDebtCard(
                     debt = debt,
                     onSettleViaUpi = { onSettleViaUpi(debt) }
@@ -272,11 +353,28 @@ private fun MembersTab(
                 EmptyMembersState()
             }
         } else {
-            items(members, key = { it.id }) { member ->
+            items(members, key = { "member_${it.id}" }) { member ->
                 MemberCard(
                     member = member,
                     onRemove = { onRemoveMember(member) }
                 )
+            }
+        }
+
+        if (isGroupSettleable && !isSettled) {
+            item {
+                Button(
+                    onClick = onSettleGroup,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = spacing.medium),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF16A34A),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text("Settle & Archive Group")
+                }
             }
         }
     }
@@ -373,6 +471,13 @@ private fun MemberBalanceCard(
                             netBalance > 0 -> Color(0xFF4CAF50)
                             netBalance < 0 -> MaterialTheme.colorScheme.error
                             else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.semantics {
+                            contentDescription = when {
+                                netBalance > 0 -> "${member.name} gets back ${IndianNumberFormatter.formatForAccessibility(netBalance)}"
+                                netBalance < 0 -> "${member.name} owes ${IndianNumberFormatter.formatForAccessibility(-netBalance)}"
+                                else -> "${member.name} settled up"
+                            }
                         }
                     )
                 }
@@ -422,7 +527,10 @@ private fun SimplifiedDebtCard(
                         text = IndianNumberFormatter.format(debt.amountPaise),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.semantics {
+                            contentDescription = "${debt.fromMember.name} owes ${debt.toMember.name} ${IndianNumberFormatter.formatForAccessibility(debt.amountPaise)}"
+                        }
                     )
                 }
             }
@@ -549,7 +657,10 @@ private fun ExpenseCard(
                 text = IndianNumberFormatter.format(expense.amountPaise),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.semantics {
+                    contentDescription = IndianNumberFormatter.formatForAccessibility(expense.amountPaise)
+                }
             )
         }
     }

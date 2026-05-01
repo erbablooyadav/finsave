@@ -34,6 +34,12 @@ class PreferencesManager @Inject constructor(
     fun setInt(key: String, value: Int) =
         prefs.edit().putInt(key, value).apply()
 
+    fun getLong(key: String, default: Long = 0L): Long =
+        prefs.getLong(key, default)
+
+    fun setLong(key: String, value: Long) =
+        prefs.edit().putLong(key, value).apply()
+
     // ── String ─────────────────────────────────────────────────────
 
     fun getString(key: String, default: String = ""): String =

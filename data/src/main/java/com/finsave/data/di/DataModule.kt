@@ -15,7 +15,11 @@ import com.finsave.data.local.dao.SplitterGroupDao
 import com.finsave.data.local.dao.SplitterMemberDao
 import com.finsave.data.local.dao.SplitterSplitDao
 import com.finsave.data.local.dao.TransactionDao
+import com.finsave.data.repository.DataResetRepositoryImpl
+import com.finsave.data.repository.MerchantCatalogRepositoryImpl
 import com.finsave.data.repository.TransactionRepositoryImpl
+import com.finsave.domain.repository.DataResetRepository
+import com.finsave.domain.repository.MerchantCatalogRepository
 import com.finsave.data.security.AndroidKeyStoreHelper
 import com.finsave.domain.repository.TransactionRepository
 import dagger.Binds
@@ -68,6 +72,8 @@ object DatabaseModule {
         }
         val passphrase = AndroidKeyStoreHelper.getOrCreatePassphrase(context)
         val factory = SupportOpenHelperFactory(passphrase)
+
+        // Destructive migration fallback is intentionally omitted; every schema change must add a proper Migration.
         val db = Room.databaseBuilder(
             context,
             FinSaveDatabase::class.java,
@@ -153,4 +159,16 @@ abstract class RepositoryModule {
     abstract fun bindSplitterRepository(
         impl: com.finsave.data.repository.SplitterRepositoryImpl
     ): com.finsave.domain.repository.SplitterRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDataResetRepository(
+        impl: DataResetRepositoryImpl
+    ): DataResetRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMerchantCatalogRepository(
+        impl: MerchantCatalogRepositoryImpl
+    ): MerchantCatalogRepository
 }

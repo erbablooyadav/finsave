@@ -8,6 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.finsave.core.common.Constants.Routes
 import com.finsave.feature.accounts.AccountScreen
 import com.finsave.feature.budget.BudgetScreen
@@ -18,6 +19,8 @@ import com.finsave.feature.onboarding.OnboardingScreen
 import com.finsave.feature.settings.SettingsScreen
 import com.finsave.feature.splitter.GroupDetailScreen
 import com.finsave.feature.splitter.SplitterScreen
+import com.finsave.feature.transactions.AddTransactionBottomSheet
+import com.finsave.feature.transactions.AddTransactionViewModel
 import com.finsave.feature.transactions.TransactionsScreen
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -53,6 +56,7 @@ fun FinSaveNavHost(
         // ── Dashboard ─────────────────────────────────────────────────────────
         composable(route = Routes.DASHBOARD) {
             var showAddTransaction by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+            val addTxViewModel: AddTransactionViewModel = hiltViewModel()
 
             DashboardScreen(
                 onAddTransactionClick = { showAddTransaction = true },
@@ -61,7 +65,8 @@ fun FinSaveNavHost(
             )
 
             if (showAddTransaction) {
-                com.finsave.feature.transactions.AddTransactionBottomSheet(
+                AddTransactionBottomSheet(
+                    viewModel = addTxViewModel,
                     onDismissRequest = { showAddTransaction = false }
                 )
             }

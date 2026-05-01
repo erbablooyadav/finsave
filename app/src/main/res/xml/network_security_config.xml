@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FinSave Network Security Config
+    The INTERNET permission is intentionally absent from AndroidManifest.xml.
+    This file exists as defense-in-depth: even if a future developer accidentally
+    adds a network call, cleartext (HTTP) traffic is explicitly blocked at the OS level.
+    No domains are configured because FinSave is 100% offline.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

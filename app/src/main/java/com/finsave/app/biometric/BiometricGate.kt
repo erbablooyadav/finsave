@@ -21,10 +21,20 @@ class BiometricGate @Inject constructor(
     /**
      * Checks if the biometric gate should be shown based on user preferences.
      * 
-     * @return true if app lock is enabled in preferences
+     * @return true if app lock is enabled and the configured timeout has elapsed
      */
     fun shouldShowGate(): Boolean {
-        return preferencesManager.getBoolean(Constants.PREFS_APP_LOCK_ENABLED, false)
+        if (!preferencesManager.getBoolean(Constants.PREFS_APP_LOCK_ENABLED, false)) return false
+
+        val timeoutSeconds = preferencesManager.getInt(Constants.PREFS_AUTO_LOCK_TIMEOUT, 300)
+        if (timeoutSeconds == 0) return false
+        if (timeoutSeconds == -1) return true
+
+        val lastPausedAt = preferencesManager.getLong(Constants.PREFS_LAST_PAUSED_AT, 0L)
+        if (lastPausedAt == 0L) return true
+
+        val elapsedSeconds = (System.currentTimeMillis() - lastPausedAt) / 1000
+        return elapsedSeconds >= timeoutSeconds
     }
 
     /**

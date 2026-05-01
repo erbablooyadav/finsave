@@ -25,9 +25,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.finsave.core.common.formatter.IndianNumberFormatter
 import com.finsave.core.ui.components.FinSaveCard
 import com.finsave.core.ui.components.GradientHeaderCard
 import com.finsave.core.ui.theme.Indigo600
@@ -106,7 +109,7 @@ fun DashboardScreen(
                         )
                         Spacer(modifier = Modifier.height(spacing.extraSmall))
                         Text(
-                            text = com.finsave.core.common.formatter.IndianNumberFormatter.format(
+                            text = IndianNumberFormatter.format(
                                 paiseAmount = totalSpendPaise,
                                 useIndianSystem = useIndianSystem,
                                 showPaise = true,
@@ -114,7 +117,10 @@ fun DashboardScreen(
                             ),
                             style = MaterialTheme.typography.displaySmall,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = Color.White,
+                            modifier = Modifier.semantics {
+                                contentDescription = IndianNumberFormatter.formatForAccessibility(totalSpendPaise)
+                            }
                         )
                         Spacer(modifier = Modifier.height(spacing.medium))
                         
@@ -286,7 +292,7 @@ fun TransactionItem(
         }
         
         val isExpense = transaction.type == TransactionType.DEBIT
-        val formattedAmount = com.finsave.core.common.formatter.IndianNumberFormatter.format(
+        val formattedAmount = IndianNumberFormatter.format(
             paiseAmount = transaction.amountPaise,
             useIndianSystem = useIndianSystem,
             showPaise = true,
@@ -296,7 +302,11 @@ fun TransactionItem(
             text = "${if(isExpense) "-" else "+"}$formattedAmount",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = if (isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFF4CAF50)
+            color = if (isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFF4CAF50),
+            modifier = Modifier.semantics {
+                val amountDescription = IndianNumberFormatter.formatForAccessibility(transaction.amountPaise)
+                contentDescription = if (isExpense) "Spent $amountDescription" else "Received $amountDescription"
+            }
         )
     }
 }

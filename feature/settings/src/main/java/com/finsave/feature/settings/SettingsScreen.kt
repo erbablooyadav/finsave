@@ -32,7 +32,9 @@ fun SettingsScreen(
     val isDarkMode by viewModel.isDarkMode.collectAsState()
     val isSyncEnabled by viewModel.isSyncEnabled.collectAsState()
     val isAppLockEnabled by viewModel.isAppLockEnabled.collectAsState()
+    val autoLockTimeoutSeconds by viewModel.autoLockTimeoutSeconds.collectAsState()
     val exportErrorMessage by viewModel.exportErrorMessage.collectAsState()
+    val settingsMessage by viewModel.settingsMessage.collectAsState()
     val spacing = LocalSpacing.current
     var showClearDataDialog by remember { mutableStateOf(false) }
     var showResyncDialog by remember { mutableStateOf(false) }
@@ -46,6 +48,13 @@ fun SettingsScreen(
         exportErrorMessage?.let { message ->
             snackbarHostState.showSnackbar(message)
             viewModel.clearExportError()
+        }
+    }
+
+    androidx.compose.runtime.LaunchedEffect(settingsMessage) {
+        settingsMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearSettingsMessage()
         }
     }
 
@@ -125,6 +134,14 @@ fun SettingsScreen(
                         }
                     }
                 )
+
+                if (isAppLockEnabled) {
+                    Spacer(modifier = Modifier.height(spacing.small))
+                    AutoLockTimeoutSelector(
+                        selectedSeconds = autoLockTimeoutSeconds,
+                        onTimeoutSelected = viewModel::setAutoLockTimeout
+                    )
+                }
             }
 
             item {
@@ -155,6 +172,13 @@ fun SettingsScreen(
                     subtitle = "Download all your transactions",
                     buttonText = "Export",
                     onClick = { viewModel.exportCsv(context) }
+                )
+
+                SettingsButtonRow(
+                    title = "Export PDF Summary",
+                    subtitle = "Share a monthly report from this device",
+                    buttonText = "Export",
+                    onClick = { viewModel.exportPdf(context) }
                 )
                 
                 SettingsButtonRow(
@@ -290,6 +314,61 @@ fun SettingsToggleRow(
             checked = checked,
             onCheckedChange = onCheckedChange
         )
+    }
+}
+
+@Composable
+fun AutoLockTimeoutSelector(
+    selectedSeconds: Int,
+    onTimeoutSelected: (Int) -> Unit
+) {
+    val spacing = LocalSpacing.current
+    val options = listOf(
+        -1 to "Immediately",
+        60 to "1 minute",
+        300 to "5 minutes",
+        1800 to "30 minutes",
+        0 to "Never"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(spacing.medium)
+    ) {
+        Text(
+            text = "Auto-lock timeout",
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = "Choose when FinSave asks to unlock after you leave the app",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(spacing.small))
+
+        options.forEach { (seconds, label) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 44.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = selectedSeconds == seconds,
+                    onClick = { onTimeoutSelected(seconds) }
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
     }
 }
 

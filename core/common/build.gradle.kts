@@ -38,6 +38,7 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.core)
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     // Hilt
     implementation(libs.hilt.android)

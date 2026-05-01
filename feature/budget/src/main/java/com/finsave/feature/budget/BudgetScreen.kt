@@ -18,9 +18,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.finsave.core.common.formatter.IndianNumberFormatter
 import com.finsave.core.ui.theme.LocalSpacing
 import com.finsave.domain.model.BudgetSummary
 
@@ -103,6 +106,7 @@ fun BudgetProgressCard(
         summary.percentUsed < 0.8f -> Color(0xFFFFC107) // Yellow
         else -> Color(0xFFF44336) // Red
     }
+    val percentUsed = (summary.percentUsed * 100).toInt()
 
     Card(
         modifier = Modifier
@@ -147,10 +151,13 @@ fun BudgetProgressCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "${(summary.percentUsed * 100).toInt()}%",
+                        text = "$percentUsed%",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = progressColor
+                        color = progressColor,
+                        modifier = Modifier.semantics {
+                            contentDescription = "Budget $percentUsed percent used"
+                        }
                     )
                     IconButton(
                         onClick = onDelete,
@@ -173,7 +180,10 @@ fun BudgetProgressCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp)),
+                    .clip(RoundedCornerShape(4.dp))
+                    .semantics {
+                        contentDescription = "Budget $percentUsed percent used"
+                    },
                 color = progressColor,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
@@ -187,27 +197,33 @@ fun BudgetProgressCard(
                 Column {
                     Text("Spent", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
-                        text = com.finsave.core.common.formatter.IndianNumberFormatter.format(
+                        text = IndianNumberFormatter.format(
                             paiseAmount = summary.spentPaise,
                             useIndianSystem = useIndianSystem,
                             showPaise = false,
                             showSymbol = true
                         ),
                         style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.semantics {
+                            contentDescription = "Spent ${IndianNumberFormatter.formatForAccessibility(summary.spentPaise)}"
+                        }
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text("Remaining", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
-                        text = com.finsave.core.common.formatter.IndianNumberFormatter.format(
+                        text = IndianNumberFormatter.format(
                             paiseAmount = summary.remainingPaise,
                             useIndianSystem = useIndianSystem,
                             showPaise = false,
                             showSymbol = true
                         ),
                         style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.semantics {
+                            contentDescription = "Remaining ${IndianNumberFormatter.formatForAccessibility(summary.remainingPaise)}"
+                        }
                     )
                 }
             }

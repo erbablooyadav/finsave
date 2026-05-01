@@ -6,6 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.finsave.core.common.Constants
 import com.finsave.core.common.notifications.NotificationHelper
+import com.finsave.core.common.prefs.DataStoreManager
 import com.finsave.core.common.prefs.PreferencesManager
 import com.finsave.domain.model.TransactionType
 import com.finsave.domain.model.currentPeriodRange
@@ -46,6 +47,7 @@ class DailyDigestWorker @AssistedInject constructor(
     @Assisted workerParams: WorkerParameters,
     private val transactionRepository: TransactionRepository,
     private val budgetRepository: BudgetRepository,
+    private val dataStoreManager: DataStoreManager,
     private val preferencesManager: PreferencesManager
 ) : CoroutineWorker(context, workerParams) {
 
@@ -100,7 +102,7 @@ class DailyDigestWorker @AssistedInject constructor(
         val totalBudget = activeBudgets.firstOrNull { it.categoryId == null }
 
         // Update streak
-        val currentStreak = preferencesManager.getInt(Constants.PREFS_BUDGET_STREAK_COUNT, 0)
+        val currentStreak = dataStoreManager.budgetStreak.first()
         val newStreak = if (totalBudget != null) {
             // Check if today's spending exceeds the total budget
             val streakBroken = todaySpentPaise > totalBudget.limitAmountPaise
@@ -110,7 +112,7 @@ class DailyDigestWorker @AssistedInject constructor(
             currentStreak
         }
 
-        preferencesManager.setInt(Constants.PREFS_BUDGET_STREAK_COUNT, newStreak)
+        dataStoreManager.saveStreak(newStreak)
         preferencesManager.setString(Constants.PREFS_LAST_STREAK_DATE, today.toString())
 
         // Calculate budget adherence percentage
@@ -143,7 +145,7 @@ class DailyDigestWorker @AssistedInject constructor(
 
         // Calculate FinSave Score
         val score = calculateFinSaveScore(newStreak, budgetAdherencePercent)
-        preferencesManager.setInt(Constants.PREFS_FINSAVE_SCORE, score)
+        dataStoreManager.saveScore(score)
     }
 
     /**

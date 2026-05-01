@@ -42,6 +42,7 @@ dependencies {
     implementation(libs.compose.navigation)
     implementation(libs.compose.animation)
     implementation(libs.compose.foundation)
+    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.hilt.android)

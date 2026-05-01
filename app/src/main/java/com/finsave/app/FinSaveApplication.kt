@@ -12,6 +12,7 @@ import com.finsave.app.workers.DailyDigestWorker
 import com.finsave.app.workers.SplitterReminderWorker
 import com.finsave.core.common.Constants
 import com.finsave.core.common.notifications.NotificationHelper
+import com.finsave.data.local.sms.BankPatternConfigProvider
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -41,6 +42,9 @@ class FinSaveApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var categoryRepository: com.finsave.domain.repository.CategoryRepository
 
+    @Inject
+    lateinit var bankPatternConfigProvider: BankPatternConfigProvider
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -68,6 +72,11 @@ class FinSaveApplication : Application(), Configuration.Provider {
         
         scheduleDailyDigest()
         scheduleSplitterReminder()
+
+        // Warm BankPatternConfig cache in background to avoid first worker runBlocking asset load.
+        CoroutineScope(Dispatchers.IO).launch {
+            bankPatternConfigProvider.warmCache()
+        }
     }
 
     /**

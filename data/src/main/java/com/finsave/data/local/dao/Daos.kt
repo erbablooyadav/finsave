@@ -37,6 +37,10 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :id")
     fun getTransactionById(id: Long): Flow<TransactionEntity?>
 
+    /** One-shot query for use inside Room transactions (avoids Flow + withTransaction deadlock). */
+    @Query("SELECT * FROM transactions WHERE id = :id")
+    suspend fun getTransactionByIdOnce(id: Long): TransactionEntity?
+
     @Query("SELECT * FROM transactions ORDER BY date DESC, created_at DESC LIMIT :limit")
     fun getRecentTransactions(limit: Int): Flow<List<TransactionEntity>>
 
@@ -70,6 +74,9 @@ interface TransactionDao {
 
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun deleteTransaction(id: Long)
+
+    @Query("DELETE FROM transactions")
+    suspend fun deleteAllTransactions()
 
     @Query("SELECT EXISTS(SELECT 1 FROM transactions WHERE sms_hash = :smsHash)")
     suspend fun isSmsDuplicate(smsHash: String): Boolean
@@ -111,6 +118,9 @@ interface CategoryDao {
     @Query("DELETE FROM categories WHERE id = :id AND is_default = 0")
     suspend fun deleteCategory(id: Long)
 
+    @Query("DELETE FROM categories WHERE is_default = 0")
+    suspend fun deleteAllCustomCategories()
+
     @Query("SELECT COUNT(*) FROM categories")
     suspend fun getCategoryCount(): Int
 }
@@ -149,6 +159,9 @@ interface AccountDao {
     @Query("UPDATE accounts SET balance_paise = balance_paise + :amountPaise WHERE id = :accountId")
     suspend fun updateBalance(accountId: Long, amountPaise: Long)
 
+    @Query("UPDATE accounts SET balance_paise = 0")
+    suspend fun resetAllBalancesToZero()
+
     @Query("SELECT COUNT(*) FROM accounts")
     suspend fun getAccountCount(): Int
 }
@@ -177,6 +190,9 @@ interface BudgetDao {
 
     @Query("DELETE FROM budgets WHERE id = :id")
     suspend fun deleteBudget(id: Long)
+
+    @Query("DELETE FROM budgets")
+    suspend fun deleteAllBudgets()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -203,6 +219,9 @@ interface SplitterGroupDao {
 
     @Query("DELETE FROM splitter_groups WHERE id = :id")
     suspend fun deleteGroup(id: Long)
+
+    @Query("DELETE FROM splitter_groups")
+    suspend fun deleteAllGroups()
 }
 
 @Dao
@@ -222,6 +241,9 @@ interface SplitterMemberDao {
 
     @Query("DELETE FROM splitter_members WHERE id = :id")
     suspend fun deleteMember(id: Long)
+
+    @Query("DELETE FROM splitter_members")
+    suspend fun deleteAllMembers()
 }
 
 @Dao
@@ -241,6 +263,9 @@ interface SplitterExpenseDao {
 
     @Query("DELETE FROM splitter_expenses WHERE id = :id")
     suspend fun deleteExpense(id: Long)
+
+    @Query("DELETE FROM splitter_expenses")
+    suspend fun deleteAllExpenses()
 }
 
 @Dao
@@ -254,4 +279,7 @@ interface SplitterSplitDao {
 
     @Query("DELETE FROM splitter_expense_splits WHERE expense_id = :expenseId")
     suspend fun deleteSplitsByExpense(expenseId: Long)
+
+    @Query("DELETE FROM splitter_expense_splits")
+    suspend fun deleteAllSplits()
 }

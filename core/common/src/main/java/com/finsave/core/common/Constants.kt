@@ -19,6 +19,8 @@ object Constants {
     const val PREFS_FINANCIAL_YEAR_APRIL = "financial_year_april_start"
     const val PREFS_DARK_MODE = "dark_mode"
     const val PREFS_APP_LOCK_ENABLED = "app_lock_enabled"
+    const val PREFS_AUTO_LOCK_TIMEOUT = "auto_lock_timeout_seconds"
+    const val PREFS_LAST_PAUSED_AT = "last_paused_at_millis"
     const val PREFS_BUDGET_STREAK_COUNT = "budget_streak_count"
     const val PREFS_LAST_STREAK_DATE = "last_streak_date"
     const val PREFS_FINSAVE_SCORE = "finsave_score"

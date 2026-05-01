@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.finsave.core.common.Constants
 import com.finsave.core.common.prefs.PreferencesManager
 import com.finsave.domain.usecase.export.ExportCsvUseCase
+import com.finsave.domain.usecase.export.ExportPdfUseCase
+import com.finsave.domain.usecase.settings.ClearAllDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +19,8 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val syncManager: com.finsave.domain.usecase.sync.SyncManager,
     private val exportCsvUseCase: ExportCsvUseCase,
+    private val exportPdfUseCase: ExportPdfUseCase,
+    private val clearAllDataUseCase: ClearAllDataUseCase,
     private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
@@ -30,9 +34,17 @@ class SettingsViewModel @Inject constructor(
         preferencesManager.getBoolean(Constants.PREFS_APP_LOCK_ENABLED, false)
     )
     val isAppLockEnabled: StateFlow<Boolean> = _isAppLockEnabled.asStateFlow()
+
+    private val _autoLockTimeoutSeconds = MutableStateFlow(
+        preferencesManager.getInt(Constants.PREFS_AUTO_LOCK_TIMEOUT, 300)
+    )
+    val autoLockTimeoutSeconds: StateFlow<Int> = _autoLockTimeoutSeconds.asStateFlow()
     
     private val _exportErrorMessage = MutableStateFlow<String?>(null)
     val exportErrorMessage: StateFlow<String?> = _exportErrorMessage.asStateFlow()
+
+    private val _settingsMessage = MutableStateFlow<String?>(null)
+    val settingsMessage: StateFlow<String?> = _settingsMessage.asStateFlow()
 
     fun toggleDarkMode(enabled: Boolean) {
         _isDarkMode.value = enabled
@@ -61,9 +73,19 @@ class SettingsViewModel @Inject constructor(
         preferencesManager.setBoolean(Constants.PREFS_APP_LOCK_ENABLED, enabled)
     }
 
+    fun setAutoLockTimeout(seconds: Int) {
+        _autoLockTimeoutSeconds.value = seconds
+        preferencesManager.setInt(Constants.PREFS_AUTO_LOCK_TIMEOUT, seconds)
+    }
+
     fun clearAllData() {
         viewModelScope.launch {
-            // TODO: Clear database
+            val result = clearAllDataUseCase()
+            _settingsMessage.value = if (result.isSuccess) {
+                "All data has been cleared"
+            } else {
+                "Failed to clear data. Please try again."
+            }
         }
     }
 
@@ -93,11 +115,24 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
+
+    fun exportPdf(context: Context) {
+        viewModelScope.launch {
+            val result = exportPdfUseCase(context)
+            if (result.isFailure) {
+                _exportErrorMessage.value = "PDF export failed. Please try again."
+            }
+        }
+    }
     
     /**
      * Clear the export error message after showing snackbar.
      */
     fun clearExportError() {
         _exportErrorMessage.value = null
+    }
+
+    fun clearSettingsMessage() {
+        _settingsMessage.value = null
     }
 }

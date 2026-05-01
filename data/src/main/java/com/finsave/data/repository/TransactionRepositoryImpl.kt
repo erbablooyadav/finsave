@@ -11,7 +11,6 @@ import com.finsave.domain.model.TransactionType
 import com.finsave.domain.repository.TransactionRepository
 import com.finsave.core.common.extensions.toEpochMillis
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import javax.inject.Inject
@@ -95,7 +94,7 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun updateTransaction(transaction: Transaction) =
         db.withTransaction {
-            val old = transactionDao.getTransactionById(transaction.id).first()
+            val old = transactionDao.getTransactionByIdOnce(transaction.id)
                 ?: return@withTransaction
             // Reverse old balance effect
             val oldDelta = if (old.type == "DEBIT") old.amountPaise else -old.amountPaise
@@ -109,7 +108,7 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun deleteTransaction(id: Long) =
         db.withTransaction {
-            val entity = transactionDao.getTransactionById(id).first()
+            val entity = transactionDao.getTransactionByIdOnce(id)
                 ?: return@withTransaction
             val reversal = if (entity.type == "DEBIT") entity.amountPaise else -entity.amountPaise
             accountDao.updateBalance(entity.accountId, reversal)

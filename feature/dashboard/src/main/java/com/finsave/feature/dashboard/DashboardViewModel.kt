@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.finsave.core.common.Constants
+import com.finsave.core.common.prefs.DataStoreManager
 import com.finsave.core.common.prefs.PreferencesManager
 import com.finsave.domain.model.Transaction
 import com.finsave.domain.repository.AccountRepository
@@ -16,6 +17,8 @@ import kotlinx.coroutines.flow.*
 import android.content.Context
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 import javax.inject.Inject
 
@@ -40,6 +43,7 @@ class DashboardViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val budgetRepository: com.finsave.domain.repository.BudgetRepository,
     private val preferencesManager: PreferencesManager,
+    private val dataStoreManager: DataStoreManager,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
@@ -56,7 +60,7 @@ class DashboardViewModel @Inject constructor(
     val totalBalancePaise = accountRepository.getTotalBalance()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
         
-    val daysRemaining = endOfMonth.dayOfMonth - LocalDate.now().dayOfMonth
+    val daysRemaining: Long get() = calculateDaysRemaining()
     
     val useIndianNumberSystem = MutableStateFlow(
         preferencesManager.getBoolean(com.finsave.core.common.Constants.PREFS_USE_INDIAN_NUMBER_SYSTEM, true)
@@ -68,13 +72,11 @@ class DashboardViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     
     // FinSave Score and Budget Streak
-    val finSaveScore: StateFlow<Int> = MutableStateFlow(
-        preferencesManager.getInt(com.finsave.core.common.Constants.PREFS_FINSAVE_SCORE, 0)
-    ).asStateFlow()
+    val finSaveScore: StateFlow<Int> = dataStoreManager.finSaveScore
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
     
-    val budgetStreakCount: StateFlow<Int> = MutableStateFlow(
-        preferencesManager.getInt(com.finsave.core.common.Constants.PREFS_BUDGET_STREAK_COUNT, 0)
-    ).asStateFlow()
+    val budgetStreakCount: StateFlow<Int> = dataStoreManager.budgetStreak
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val smsImportProgress: StateFlow<SmsImportProgressUi?> =
         WorkManager.getInstance(appContext)
@@ -129,5 +131,11 @@ class DashboardViewModel @Inject constructor(
             parsed = parsed,
             imported = imported
         )
+    }
+
+    private fun calculateDaysRemaining(): Long {
+        val today = LocalDate.now(ZoneId.of("Asia/Kolkata"))
+        val end = YearMonth.now(ZoneId.of("Asia/Kolkata")).atEndOfMonth()
+        return ChronoUnit.DAYS.between(today, end).coerceAtLeast(0)
     }
 }

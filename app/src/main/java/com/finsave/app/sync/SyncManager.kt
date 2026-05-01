@@ -24,18 +24,19 @@ class SyncManagerImpl @Inject constructor(
     override fun startPeriodicSync() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.NOT_REQUIRED) // Works offline
+            .setRequiresBatteryNotLow(true)
             .build()
 
         val syncRequest = PeriodicWorkRequestBuilder<SmsSyncWorker>(
-            15, TimeUnit.MINUTES, // Minimum interval allowed by Android
-            5, TimeUnit.MINUTES // Flex interval
+            24, TimeUnit.HOURS,
+            2, TimeUnit.HOURS
         )
             .setConstraints(constraints)
             .build()
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             SmsSyncWorker.WORK_NAME,
-            androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.KEEP,
             syncRequest
         )
     }

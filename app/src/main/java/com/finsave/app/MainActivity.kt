@@ -1,6 +1,7 @@
 package com.finsave.app
 
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -17,6 +18,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.finsave.app.biometric.BiometricGate
 import com.finsave.app.biometric.BiometricGateScreen
 import com.finsave.app.navigation.FinSaveNavHost
+import com.finsave.core.common.Constants
+import com.finsave.core.common.prefs.PreferencesManager
 import com.finsave.core.common.startup.AppLaunchCoordinator
 import com.finsave.core.ui.theme.FinSaveTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -30,11 +33,19 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var appLaunchCoordinator: AppLaunchCoordinator
+
+    @Inject
+    lateinit var preferencesManager: PreferencesManager
     
     private var isAuthenticated by mutableStateOf(true)
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_SECURE,
+            WindowManager.LayoutParams.FLAG_SECURE
+        )
         
         // Edge to edge for immersive UI (Android 15+ requirement/best practice)
         enableEdgeToEdge()
@@ -75,5 +86,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        preferencesManager.setLong(Constants.PREFS_LAST_PAUSED_AT, System.currentTimeMillis())
     }
 }

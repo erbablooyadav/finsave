@@ -24,7 +24,9 @@ import com.finsave.core.ui.theme.LocalSpacing
 import com.finsave.domain.model.Budget
 import com.finsave.domain.model.BudgetPeriod
 import com.finsave.domain.model.Category
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
@@ -385,7 +387,7 @@ fun BudgetDialog(
 
             LaunchedEffect(datePickerState.selectedDateMillis) {
                 datePickerState.selectedDateMillis?.let { millis ->
-                    startDate = LocalDate.ofEpochDay(millis / (24 * 60 * 60 * 1000))
+                    startDate = LocalDate.ofInstant(Instant.ofEpochMilli(millis), ZoneId.of("Asia/Kolkata"))
                 }
             }
         }
@@ -412,7 +414,7 @@ fun BudgetDialog(
 
             LaunchedEffect(datePickerState.selectedDateMillis) {
                 datePickerState.selectedDateMillis?.let { millis ->
-                    endDate = LocalDate.ofEpochDay(millis / (24 * 60 * 60 * 1000))
+                    endDate = LocalDate.ofInstant(Instant.ofEpochMilli(millis), ZoneId.of("Asia/Kolkata"))
                 }
             }
         }

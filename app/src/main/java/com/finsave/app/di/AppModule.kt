@@ -1,6 +1,8 @@
 package com.finsave.app.di
 
 import com.finsave.app.sync.SyncManagerImpl
+import com.finsave.app.workers.WorkManagerBudgetCheckScheduler
+import com.finsave.core.common.work.BudgetCheckScheduler
 import com.finsave.domain.usecase.sync.SyncManager
 import dagger.Binds
 import dagger.Module
@@ -17,4 +19,10 @@ abstract class AppModule {
     abstract fun bindSyncManager(
         impl: SyncManagerImpl
     ): SyncManager
+
+    @Binds
+    @Singleton
+    abstract fun bindBudgetCheckScheduler(
+        impl: WorkManagerBudgetCheckScheduler
+    ): BudgetCheckScheduler
 }

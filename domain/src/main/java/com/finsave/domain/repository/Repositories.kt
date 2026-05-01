@@ -105,3 +105,11 @@ interface SplitterRepository {
     suspend fun insertSplits(splits: List<SplitterExpenseSplit>)
     suspend fun deleteSplitsByExpense(expenseId: Long)
 }
+
+interface DataResetRepository {
+    suspend fun clearAllData()
+}
+
+interface MerchantCatalogRepository {
+    suspend fun getBundledMerchantNames(): List<String>
+}

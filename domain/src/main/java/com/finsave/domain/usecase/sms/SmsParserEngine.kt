@@ -77,8 +77,12 @@ class SmsParserEngine @Inject constructor(
             }
         }
 
+        if (bank == null) {
+            return null
+        }
+
         // --- UNIVERSAL FALLBACK HEURISTIC ---
-        // If strict config fails, use universal heuristics to catch transactions.
+        // If strict config fails for a known sender, use universal heuristics to catch transactions.
         
         val amountRegex = Regex("(?i)(?:Rs\\.?|INR|₹|Rs)\\s*:?\\s*([\\d,]+\\.?\\d*)")
         val debitRegex = Regex("(?i)(debited|withdrawn|spent|paid|sent|txn)")
