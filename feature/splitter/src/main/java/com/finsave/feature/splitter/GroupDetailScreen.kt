@@ -35,6 +35,10 @@ import com.finsave.domain.model.MemberBalance
 import com.finsave.domain.model.SimplifiedDebt
 import com.finsave.domain.model.SplitterExpense
 import com.finsave.domain.model.SplitterMember
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
@@ -191,7 +195,15 @@ fun GroupDetailScreen(
                 }
             }
 
-            if (showSettledOverlay) {
+           if (showSettledOverlay) {
+                val confettiComposition by rememberLottieComposition(
+                    LottieCompositionSpec.RawRes(R.raw.confetti)
+                )
+                val confettiProgress by animateLottieCompositionAsState(
+                    composition = confettiComposition,
+                    iterations = 1
+                )
+
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -199,6 +211,12 @@ fun GroupDetailScreen(
                         .alpha(settledOverlayAlpha),
                     contentAlignment = Alignment.Center
                 ) {
+                    LottieAnimation(
+                        composition = confettiComposition,
+                        progress = { confettiProgress },
+                        modifier = Modifier.fillMaxSize()
+                    )
+
                     Surface(
                         shape = MaterialTheme.shapes.large,
                         color = Color(0xFF16A34A),

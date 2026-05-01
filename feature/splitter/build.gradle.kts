@@ -46,6 +46,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
+    implementation(libs.lottie.compose)
     ksp(libs.hilt.android.compiler)
 
     implementation(project(":core:ui"))
