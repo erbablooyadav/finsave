@@ -8,9 +8,11 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import androidx.work.Data
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
+import com.finsave.core.common.Constants
 import com.finsave.data.local.sms.BankPatternConfigProvider
 import com.finsave.data.local.sms.SmsInboxReader
 import com.finsave.domain.model.Transaction
@@ -54,6 +56,7 @@ class SmsSyncWorker @AssistedInject constructor(
                 limit = 1000
             )
             Log.d(TAG, "Read ${rawMessages.size} bank SMS from inbox")
+            publishProgress(total = rawMessages.size, parsed = 0, imported = 0)
 
             val defaultAccount = accountRepository.getDefaultAccount().firstOrNull()
             val fallbackAccount = defaultAccount ?: accountRepository.getAllAccounts().firstOrNull()?.firstOrNull()
@@ -67,8 +70,9 @@ class SmsSyncWorker @AssistedInject constructor(
             var imported = 0
             var skippedDuplicate = 0
             var skippedNoParse = 0
+            var parsed = 0
 
-            for (sms in rawMessages) {
+            for ((index, sms) in rawMessages.withIndex()) {
                 val parsedTx = smsParserEngine.parse(
                     smsId = sms.id,
                     sender = sms.sender,
@@ -79,12 +83,19 @@ class SmsSyncWorker @AssistedInject constructor(
 
                 if (parsedTx == null) {
                     skippedNoParse++
+                    if ((index + 1) % 20 == 0 || index == rawMessages.lastIndex) {
+                        publishProgress(total = rawMessages.size, parsed = parsed, imported = imported)
+                    }
                     continue
                 }
+                parsed++
 
                 val isDuplicate = transactionRepository.isSmsDuplicate(parsedTx.duplicateHash)
                 if (isDuplicate) {
                     skippedDuplicate++
+                    if ((index + 1) % 20 == 0 || index == rawMessages.lastIndex) {
+                        publishProgress(total = rawMessages.size, parsed = parsed, imported = imported)
+                    }
                     continue
                 }
 
@@ -105,10 +116,20 @@ class SmsSyncWorker @AssistedInject constructor(
                 )
                 transactionRepository.insertTransaction(tx)
                 imported++
+                if ((index + 1) % 20 == 0 || index == rawMessages.lastIndex) {
+                    publishProgress(total = rawMessages.size, parsed = parsed, imported = imported)
+                }
             }
 
             Log.i(TAG, "SMS sync done — imported=$imported, duplicates=$skippedDuplicate, no-parse=$skippedNoParse")
-            Result.success()
+            publishProgress(total = rawMessages.size, parsed = parsed, imported = imported)
+            Result.success(
+                Data.Builder()
+                    .putInt(Constants.PROGRESS_SMS_TOTAL, rawMessages.size)
+                    .putInt(Constants.PROGRESS_SMS_PARSED, parsed)
+                    .putInt(Constants.PROGRESS_SMS_IMPORTED, imported)
+                    .build()
+            )
         } catch (e: SecurityException) {
             // READ_SMS was revoked mid-execution
             Log.e(TAG, "SecurityException reading SMS — permission revoked?", e)
@@ -122,5 +143,15 @@ class SmsSyncWorker @AssistedInject constructor(
     companion object {
         const val WORK_NAME = "SmsSyncWorker"
         private const val TAG = "SmsSyncWorker"
+    }
+
+    private suspend fun publishProgress(total: Int, parsed: Int, imported: Int) {
+        setProgress(
+            Data.Builder()
+                .putInt(Constants.PROGRESS_SMS_TOTAL, total)
+                .putInt(Constants.PROGRESS_SMS_PARSED, parsed)
+                .putInt(Constants.PROGRESS_SMS_IMPORTED, imported)
+                .build()
+        )
     }
 }

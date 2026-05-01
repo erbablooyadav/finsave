@@ -24,6 +24,8 @@ hilt-navigation-compose = "1.2.0"
 
 # ── Database ────────────────────────────────────────────────────
 room = "2.6.1"
+sqlcipher = "4.6.1"
+androidx-sqlite = "2.4.0"
 
 # ── Async ───────────────────────────────────────────────────────
 coroutines = "1.9.0"
@@ -84,6 +86,8 @@ hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-com
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+sqlcipher-android = { group = "net.zetetic", name = "sqlcipher-android", version.ref = "sqlcipher" }
+androidx-sqlite-ktx = { group = "androidx.sqlite", name = "sqlite-ktx", version.ref = "androidx-sqlite" }
 
 # ── Coroutines ──────────────────────────────────────────────────
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }

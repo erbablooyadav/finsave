@@ -14,8 +14,13 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,10 +55,26 @@ fun DashboardScreen(
     val hasTotalBudget by viewModel.hasTotalBudget.collectAsState()
     val finSaveScore by viewModel.finSaveScore.collectAsState()
     val budgetStreakCount by viewModel.budgetStreakCount.collectAsState()
+    val smsImportProgress by viewModel.smsImportProgress.collectAsState()
+    val smsImportCompletion by viewModel.smsImportCompletion.collectAsState()
     val spacing = LocalSpacing.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    var lastShownCompletionId by rememberSaveable { mutableStateOf("") }
+
+    LaunchedEffect(smsImportCompletion?.workId) {
+        val completion = smsImportCompletion ?: return@LaunchedEffect
+        if (completion.workId.toString() != lastShownCompletionId) {
+            snackbarHostState.showSnackbar(
+                message = "SMS import complete: parsed ${completion.parsed}/${completion.total}, imported ${completion.imported}"
+            )
+            lastShownCompletionId = completion.workId.toString()
+            viewModel.markSmsImportCompletionShown(completion.workId)
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddTransactionClick,
@@ -131,6 +152,15 @@ fun DashboardScreen(
                 )
             }
 
+            if (smsImportProgress != null) {
+                item {
+                    SmsImportProgressCard(
+                        progress = smsImportProgress!!,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
             item {
                 FinSaveCard {
                     Column {
@@ -176,6 +206,33 @@ fun DashboardScreen(
             item {
                 Spacer(modifier = Modifier.height(spacing.huge))
             }
+        }
+    }
+}
+
+@Composable
+private fun SmsImportProgressCard(
+    progress: SmsImportProgressUi,
+    modifier: Modifier = Modifier
+) {
+    FinSaveCard(modifier = modifier) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "Importing SMS transactions",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            LinearProgressIndicator(
+                progress = {
+                    if (progress.total <= 0) 0f else progress.parsed.toFloat() / progress.total.toFloat()
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = "Parsed: ${progress.parsed}/${progress.total}  •  Imported: ${progress.imported}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

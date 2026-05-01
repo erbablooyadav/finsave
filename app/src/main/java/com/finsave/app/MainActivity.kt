@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
@@ -16,6 +17,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.finsave.app.biometric.BiometricGate
 import com.finsave.app.biometric.BiometricGateScreen
 import com.finsave.app.navigation.FinSaveNavHost
+import com.finsave.core.common.startup.AppLaunchCoordinator
 import com.finsave.core.ui.theme.FinSaveTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -25,6 +27,9 @@ class MainActivity : ComponentActivity() {
     
     @Inject
     lateinit var biometricGate: BiometricGate
+
+    @Inject
+    lateinit var appLaunchCoordinator: AppLaunchCoordinator
     
     private var isAuthenticated by mutableStateOf(true)
     
@@ -54,6 +59,7 @@ class MainActivity : ComponentActivity() {
                     )
                 } else {
                     val navController = androidx.navigation.compose.rememberNavController()
+                    val startDestination = remember { appLaunchCoordinator.resolveStartDestination() }
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
                         bottomBar = {
@@ -62,7 +68,8 @@ class MainActivity : ComponentActivity() {
                     ) { innerPadding ->
                         FinSaveNavHost(
                             modifier = Modifier.padding(innerPadding),
-                            navController = navController
+                            navController = navController,
+                            startDestination = startDestination
                         )
                     }
                 }

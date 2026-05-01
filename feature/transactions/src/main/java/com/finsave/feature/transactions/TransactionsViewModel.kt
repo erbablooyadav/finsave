@@ -12,6 +12,10 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.YearMonth
+import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.roundToLong
 import javax.inject.Inject
 
 @OptIn(FlowPreview::class)
@@ -34,21 +38,26 @@ class TransactionsViewModel @Inject constructor(
     private val _deleteConfirmation = MutableStateFlow<Transaction?>(null)
     val deleteConfirmation: StateFlow<Transaction?> = _deleteConfirmation.asStateFlow()
 
-    // Debounced search query
-    private val debouncedQuery = _filterState
-        .map { it.query }
+    private val debouncedFilterState = _filterState
         .debounce(300)
         .distinctUntilChanged()
 
     // Combine all transactions with filters
     val transactions: StateFlow<List<Transaction>> = combine(
         getTransactions(),
-        debouncedQuery,
-        _filterState.map { it.typeFilter },
-        _filterState.map { it.startDate },
-        _filterState.map { it.endDate }
-    ) { allTransactions, query, typeFilter, startDate, endDate ->
-        applyFilters(allTransactions, query, typeFilter, startDate, endDate)
+        debouncedFilterState
+    ) { allTransactions, filterState ->
+        applyFilters(
+            transactions = allTransactions,
+            query = filterState.query,
+            typeFilter = filterState.typeFilter,
+            datePreset = filterState.datePreset,
+            minAmountPaise = filterState.minAmountPaise,
+            maxAmountPaise = filterState.maxAmountPaise,
+            sortOption = filterState.sortOption,
+            startDate = filterState.startDate,
+            endDate = filterState.endDate
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
@@ -58,17 +67,40 @@ class TransactionsViewModel @Inject constructor(
         transactions: List<Transaction>,
         query: String,
         typeFilter: TransactionTypeFilter,
+        datePreset: TransactionDatePreset,
+        minAmountPaise: Long?,
+        maxAmountPaise: Long?,
+        sortOption: TransactionSortOption,
         startDate: LocalDate?,
         endDate: LocalDate?
     ): List<Transaction> {
-        return transactions
+        val now = LocalDate.now()
+        val presetStartDate = when (datePreset) {
+            TransactionDatePreset.ALL_TIME -> null
+            TransactionDatePreset.THIS_MONTH -> YearMonth.now().atDay(1)
+            TransactionDatePreset.LAST_3_MONTHS -> now.minusMonths(3)
+            TransactionDatePreset.THIS_YEAR -> LocalDate.of(now.year, 1, 1)
+            TransactionDatePreset.CUSTOM -> null
+        }
+
+        val filtered = transactions
             .filter { transaction ->
                 // Search query filter (merchant name or note)
                 val matchesQuery = if (query.isBlank()) {
                     true
                 } else {
-                    transaction.merchantName.contains(query, ignoreCase = true) ||
-                            transaction.note.contains(query, ignoreCase = true)
+                    when (val amountQueryPaise = parseAmountQueryToPaise(query)) {
+                        null -> {
+                            transaction.merchantName.contains(query, ignoreCase = true) ||
+                                transaction.note.contains(query, ignoreCase = true) ||
+                                matchesAmountDisplay(transaction, query)
+                        }
+                        else -> {
+                            // Numeric query means user is searching by amount,
+                            // so match exact value (with 1-paise tolerance).
+                            abs(transaction.amountPaise - amountQueryPaise) <= 1L
+                        }
+                    }
                 }
 
                 // Type filter
@@ -89,9 +121,48 @@ class TransactionsViewModel @Inject constructor(
                     true
                 }
 
-                matchesQuery && matchesType && matchesDateRange
+                val matchesPreset = presetStartDate?.let { !transaction.date.isBefore(it) } ?: true
+                val matchesAmountRange = (minAmountPaise == null || transaction.amountPaise >= minAmountPaise) &&
+                    (maxAmountPaise == null || transaction.amountPaise <= maxAmountPaise)
+
+                matchesQuery && matchesType && matchesDateRange && matchesPreset && matchesAmountRange
             }
-            .sortedByDescending { it.date }
+        return when (sortOption) {
+            TransactionSortOption.DATE_DESC -> filtered.sortedByDescending { it.date }
+            TransactionSortOption.DATE_ASC -> filtered.sortedBy { it.date }
+            TransactionSortOption.AMOUNT_DESC -> filtered.sortedByDescending { it.amountPaise }
+            TransactionSortOption.AMOUNT_ASC -> filtered.sortedBy { it.amountPaise }
+        }
+    }
+
+    private fun matchesAmountDisplay(transaction: Transaction, query: String): Boolean {
+        val normalizedQuery = query
+            .replace("₹", "")
+            .replace(",", "")
+            .trim()
+
+        if (normalizedQuery.isBlank()) return false
+
+        val rupeesFormatted = String.format(Locale.ROOT, "%.2f", transaction.amountPaise / 100.0)
+        val rupeesWhole = (transaction.amountPaise / 100L).toString()
+        val paiseRaw = transaction.amountPaise.toString()
+
+        return rupeesFormatted.contains(normalizedQuery) ||
+            rupeesWhole.contains(normalizedQuery) ||
+            paiseRaw.contains(normalizedQuery)
+    }
+
+    private fun parseAmountQueryToPaise(query: String): Long? {
+        val cleaned = query
+            .replace("₹", "")
+            .replace(",", "")
+            .trim()
+
+        if (cleaned.isBlank()) return null
+        if (!cleaned.matches(Regex("^\\d+(\\.\\d{1,2})?$"))) return null
+
+        val rupees = cleaned.toDoubleOrNull() ?: return null
+        return (rupees * 100.0).roundToLong()
     }
 
     fun onSearchQueryChange(query: String) {
@@ -100,6 +171,28 @@ class TransactionsViewModel @Inject constructor(
 
     fun onTypeFilterChange(typeFilter: TransactionTypeFilter) {
         _filterState.update { it.copy(typeFilter = typeFilter) }
+    }
+
+    fun onDatePresetChange(datePreset: TransactionDatePreset) {
+        _filterState.update {
+            if (datePreset == TransactionDatePreset.CUSTOM) {
+                it.copy(datePreset = datePreset)
+            } else {
+                it.copy(datePreset = datePreset, startDate = null, endDate = null)
+            }
+        }
+    }
+
+    fun onAmountRangeChange(minAmountPaise: Long?, maxAmountPaise: Long?) {
+        _filterState.update { it.copy(minAmountPaise = minAmountPaise, maxAmountPaise = maxAmountPaise) }
+    }
+
+    fun onSortOptionChange(sortOption: TransactionSortOption) {
+        _filterState.update { it.copy(sortOption = sortOption) }
+    }
+
+    fun resetFilters() {
+        _filterState.value = TransactionFilterState()
     }
 
     fun onDateRangeChange(startDate: LocalDate?, endDate: LocalDate?) {

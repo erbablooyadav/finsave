@@ -22,6 +22,9 @@ object Constants {
     const val PREFS_BUDGET_STREAK_COUNT = "budget_streak_count"
     const val PREFS_LAST_STREAK_DATE = "last_streak_date"
     const val PREFS_FINSAVE_SCORE = "finsave_score"
+    const val PREFS_LAST_SMS_IMPORT_COMPLETION_ID = "last_sms_import_completion_id"
+    const val PREFS_DB_ENCRYPTED_V1 = "db_encrypted_v1"
+    const val PREFS_DB_PASSPHRASE_IV = "db_passphrase_iv_b64"
 
     // ── SMS Parsing ────────────────────────────────────────────────
     const val BANK_PATTERNS_ASSET = "bank_patterns.json"
@@ -70,9 +73,15 @@ object Constants {
 
     // ── WorkManager Tags ───────────────────────────────────────────
     const val WORK_SMS_SYNC = "finsave_sms_sync"
+    const val WORK_SMS_MANUAL_IMPORT = "finsave_sms_manual_import"
     const val WORK_BUDGET_CHECK = "finsave_budget_check"
     const val WORK_DAILY_DIGEST = "finsave_daily_digest"
     const val WORK_SPLITTER_REMINDER = "finsave_splitter"
+
+    // ── WorkManager Progress Keys ─────────────────────────────────
+    const val PROGRESS_SMS_TOTAL = "progress_sms_total"
+    const val PROGRESS_SMS_PARSED = "progress_sms_parsed"
+    const val PROGRESS_SMS_IMPORTED = "progress_sms_imported"
 
     // ── Billing ────────────────────────────────────────────────────
     const val BILLING_PRODUCT_FINSAVE_PLUS = "finsave_plus"

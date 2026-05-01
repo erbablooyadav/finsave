@@ -3,9 +3,11 @@ package com.finsave.app.sync
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.finsave.core.common.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -48,9 +50,14 @@ class SyncManagerImpl @Inject constructor(
             .build()
             
         val workRequest = OneTimeWorkRequestBuilder<SmsSyncWorker>()
+            .addTag(Constants.WORK_SMS_MANUAL_IMPORT)
             .setInputData(inputData)
             .build()
             
-        WorkManager.getInstance(context).enqueue(workRequest)
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            Constants.WORK_SMS_MANUAL_IMPORT,
+            ExistingWorkPolicy.REPLACE,
+            workRequest
+        )
     }
 }
