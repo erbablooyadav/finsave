@@ -45,6 +45,7 @@ class SmsNoiseFilter @Inject constructor() {
             "credit card payment of",
             "payment received for credit card",
             "towards cc",
+            "credited to your card",
             // ── Available / credit limit info (standalone) ──────────────────
             "available credit limit",
             "credit limit is",
