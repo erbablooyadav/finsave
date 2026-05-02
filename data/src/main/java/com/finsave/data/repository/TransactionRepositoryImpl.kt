@@ -86,9 +86,13 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun insertTransaction(transaction: Transaction): Long =
         db.withTransaction {
             val id = transactionDao.insertTransaction(transaction.toEntity())
-            val delta = if (transaction.type == TransactionType.DEBIT)
-                -transaction.amountPaise else transaction.amountPaise
-            accountDao.updateBalance(transaction.accountId, delta)
+            // id == -1L means IGNORE fired (duplicate sms_hash). Skip balance update to
+            // avoid double-counting money when the same SMS is processed more than once.
+            if (id != -1L) {
+                val delta = if (transaction.type == TransactionType.DEBIT)
+                    -transaction.amountPaise else transaction.amountPaise
+                accountDao.updateBalance(transaction.accountId, delta)
+            }
             id
         }
 

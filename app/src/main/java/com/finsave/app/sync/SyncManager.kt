@@ -55,9 +55,13 @@ class SyncManagerImpl @Inject constructor(
             .setInputData(inputData)
             .build()
             
+        // KEEP: if a sync is already queued or running (e.g., the app was re-launched
+        // via WiFi debugging), do NOT cancel and restart it — let it finish.
+        // The sms_hash dedup index is a safety net, but KEEP avoids even starting
+        // a redundant worker in the first place.
         WorkManager.getInstance(context).enqueueUniqueWork(
             Constants.WORK_SMS_MANUAL_IMPORT,
-            ExistingWorkPolicy.REPLACE,
+            ExistingWorkPolicy.KEEP,
             workRequest
         )
     }

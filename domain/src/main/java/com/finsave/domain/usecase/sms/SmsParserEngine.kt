@@ -24,7 +24,8 @@ data class ParsedTransaction(
 class SmsParserEngine @Inject constructor(
     private val amountExtractor: AmountExtractor,
     private val merchantExtractor: MerchantExtractor,
-    private val autoCategoriser: AutoCategoriser
+    private val autoCategoriser: AutoCategoriser,
+    private val noiseFilter: SmsNoiseFilter
 ) {
     /**
      * Parses a raw SMS body into a ParsedTransaction.
@@ -37,7 +38,11 @@ class SmsParserEngine @Inject constructor(
         timestamp: Long,
         config: BankPatternConfig
     ): ParsedTransaction? {
-        
+
+        // 0. Noise pre-pass — discard OTPs, balance alerts, CC payment confirmations, etc.
+        //    This runs before any regex matching to keep false-positive risk minimal.
+        if (noiseFilter.isNoise(body)) return null
+
         // 1. Try to Identify Bank by Sender ID
         val bank = config.banks.find { bankConfig ->
             bankConfig.senderIds.any { id -> sender.contains(id, ignoreCase = true) }
@@ -60,7 +65,9 @@ class SmsParserEngine @Inject constructor(
                     )
                     
                     val category = autoCategoriser.categorise(merchant, config.autoCategoryMappings)
-                    val rawToHash = "$amountPaise|${pattern.type}|$merchant|$timestamp"
+                    // Hash uses stable fields only (smsId + amount + type + timestamp).
+                    // Merchant is excluded because regex extraction can vary slightly between runs.
+                    val rawToHash = "$smsId|$amountPaise|${pattern.type}|$timestamp"
                     val duplicateHash = hashString(rawToHash)
                     
                     return ParsedTransaction(
@@ -120,7 +127,8 @@ class SmsParserEngine @Inject constructor(
             val bankName = bank?.bankName ?: sender.replace(Regex("^[A-Za-z]{2}-"), "").uppercase()
 
             val category = autoCategoriser.categorise(merchant, config.autoCategoryMappings)
-            val rawToHash = "$amountPaise|$type|$merchant|$timestamp"
+            // Stable hash: smsId is the most reliable dedup key from the ContentProvider.
+            val rawToHash = "$smsId|$amountPaise|$type|$timestamp"
             val duplicateHash = hashString(rawToHash)
 
             return ParsedTransaction(

@@ -25,6 +25,7 @@ object Constants {
     const val PREFS_LAST_STREAK_DATE = "last_streak_date"
     const val PREFS_FINSAVE_SCORE = "finsave_score"
     const val PREFS_LAST_SMS_IMPORT_COMPLETION_ID = "last_sms_import_completion_id"
+    const val PREFS_LAST_SMS_SYNC_TIMESTAMP = "last_sms_sync_timestamp_millis"
     const val PREFS_DB_ENCRYPTED_V1 = "db_encrypted_v1"
     const val PREFS_DB_PASSPHRASE_IV = "db_passphrase_iv_b64"
 

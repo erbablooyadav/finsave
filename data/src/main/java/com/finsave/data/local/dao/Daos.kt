@@ -66,7 +66,7 @@ interface TransactionDao {
     """)
     fun getSpendByCategory(startDate: Long, endDate: Long): Flow<List<CategorySpend>>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTransaction(transaction: TransactionEntity): Long
 
     @Update

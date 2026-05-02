@@ -13,6 +13,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
 import com.finsave.core.common.Constants
+import com.finsave.core.common.prefs.PreferencesManager
 import com.finsave.data.local.sms.BankPatternConfigProvider
 import com.finsave.data.local.sms.SmsInboxReader
 import com.finsave.domain.model.Transaction
@@ -32,7 +33,8 @@ class SmsSyncWorker @AssistedInject constructor(
     private val smsParserEngine: SmsParserEngine,
     private val bankPatternConfigProvider: BankPatternConfigProvider,
     private val transactionRepository: TransactionRepository,
-    private val accountRepository: AccountRepository
+    private val accountRepository: AccountRepository,
+    private val preferencesManager: PreferencesManager
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -48,8 +50,18 @@ class SmsSyncWorker @AssistedInject constructor(
         return try {
             val config = bankPatternConfigProvider.getConfig()
 
-            val sevenDaysAgo = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L)
-            val sinceTimestamp = inputData.getLong("sinceTimestamp", sevenDaysAgo)
+            // Determine sinceTimestamp:
+            //  • If the caller explicitly passed one (e.g., onboarding passes 0L for all-time),
+            //    use it directly.
+            //  • Otherwise fall back to the last successful sync timestamp so we only
+            //    fetch messages that arrived since the previous run.
+            //  • If no previous sync ever ran, default to SMS_MAX_AGE_DAYS so we don't
+            //    process years of old messages on first install.
+            val defaultSinceTimestamp = preferencesManager.getLong(
+                Constants.PREFS_LAST_SMS_SYNC_TIMESTAMP,
+                System.currentTimeMillis() - (Constants.SMS_MAX_AGE_DAYS * 24 * 60 * 60 * 1000L)
+            )
+            val sinceTimestamp = inputData.getLong("sinceTimestamp", defaultSinceTimestamp)
 
             val rawMessages = smsInboxReader.readBankSms(
                 sinceTimestamp = sinceTimestamp,
@@ -99,11 +111,22 @@ class SmsSyncWorker @AssistedInject constructor(
                     continue
                 }
 
+                // Skip failed / declined transactions — they never moved real money.
+                if (parsedTx.type == com.finsave.domain.model.sms.TransactionType.FAILED) {
+                    skippedNoParse++
+                    continue
+                }
+
+                val txType = when (parsedTx.type) {
+                    com.finsave.domain.model.sms.TransactionType.DEBIT    -> TransactionType.DEBIT
+                    com.finsave.domain.model.sms.TransactionType.TRANSFER -> TransactionType.DEBIT // money leaving account
+                    else                                                    -> TransactionType.CREDIT
+                }
+
                 val tx = Transaction(
                     id = 0,
                     amountPaise = parsedTx.amountPaise,
-                    type = if (parsedTx.type == com.finsave.domain.model.sms.TransactionType.DEBIT)
-                        TransactionType.DEBIT else TransactionType.CREDIT,
+                    type = txType,
                     categoryId = 0L,
                     accountId = accountId,
                     merchantName = parsedTx.merchant,
@@ -123,6 +146,10 @@ class SmsSyncWorker @AssistedInject constructor(
 
             Log.i(TAG, "SMS sync done — imported=$imported, duplicates=$skippedDuplicate, no-parse=$skippedNoParse")
             publishProgress(total = rawMessages.size, parsed = parsed, imported = imported)
+
+            // Persist the sync completion time so the next run only fetches new SMS.
+            preferencesManager.setLong(Constants.PREFS_LAST_SMS_SYNC_TIMESTAMP, System.currentTimeMillis())
+
             Result.success(
                 Data.Builder()
                     .putInt(Constants.PROGRESS_SMS_TOTAL, rawMessages.size)

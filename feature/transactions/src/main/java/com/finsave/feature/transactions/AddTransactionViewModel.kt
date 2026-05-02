@@ -68,6 +68,11 @@ class AddTransactionViewModel @Inject constructor(
     private val _selectedAccountId = MutableStateFlow<Long?>(null)
     val selectedAccountId = _selectedAccountId.asStateFlow()
 
+    // Preserved across edits so that updating a transaction (e.g. changing its
+    // category) does not wipe the sms_hash and break deduplication.
+    private val _smsHash = MutableStateFlow<String?>(null)
+    private val _isAutoImported = MutableStateFlow(false)
+
     val categories = categoryRepository.getAllCategories().stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
@@ -159,6 +164,8 @@ class AddTransactionViewModel @Inject constructor(
         _merchantName.value = transaction.merchantName
         _selectedDate.value = transaction.date
         _selectedAccountId.value = transaction.accountId
+        _smsHash.value = transaction.smsHash
+        _isAutoImported.value = transaction.isAutoImported
     }
 
     /**
@@ -174,6 +181,8 @@ class AddTransactionViewModel @Inject constructor(
         _merchantName.value = ""
         _selectedDate.value = java.time.LocalDate.now()
         _selectedAccountId.value = null
+        _smsHash.value = null
+        _isAutoImported.value = false
         hiddenMerchantSuggestion.value = null
     }
 
@@ -200,7 +209,8 @@ class AddTransactionViewModel @Inject constructor(
                 merchantName = _merchantName.value.ifBlank { "Unknown Merchant" },
                 date = _selectedDate.value,
                 note = "",
-                smsHash = null
+                isAutoImported = _isAutoImported.value,
+                smsHash = _smsHash.value
             )
             
             if (_isEditMode.value) {
