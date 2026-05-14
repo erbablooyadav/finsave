@@ -28,4 +28,7 @@
     <string name="onboarding_notif_btn">Enable Notifications</string>
     
     <string name="onboarding_done_btn">Start Saving</string>
+
+    <!-- Share / Viral -->
+    <string name="play_store_link">https://play.google.com/store/apps/details?id=com.finsave.app</string>
 </resources>

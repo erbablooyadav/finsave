@@ -12,6 +12,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,7 +22,8 @@ class SettingsViewModel @Inject constructor(
     private val exportCsvUseCase: ExportCsvUseCase,
     private val exportPdfUseCase: ExportPdfUseCase,
     private val clearAllDataUseCase: ClearAllDataUseCase,
-    private val preferencesManager: PreferencesManager
+    private val preferencesManager: PreferencesManager,
+    private val analyticsRepository: com.finsave.domain.repository.AnalyticsRepository
 ) : ViewModel() {
 
     private val _isDarkMode = MutableStateFlow(false)
@@ -134,5 +136,45 @@ class SettingsViewModel @Inject constructor(
 
     fun clearSettingsMessage() {
         _settingsMessage.value = null
+    }
+
+    /**
+     * Generates a diagnostic report and opens email app to send it.
+     * Includes device info and recent local analytics events.
+     * Requirements: E5.3
+     */
+    fun generateIssueReport(context: Context) {
+        viewModelScope.launch {
+            val events = analyticsRepository.getRecentEvents(50).first()
+            val deviceInfo = """
+                Model: ${android.os.Build.MODEL}
+                Manufacturer: ${android.os.Build.MANUFACTURER}
+                Android Version: ${android.os.Build.VERSION.RELEASE} (SDK ${android.os.Build.VERSION.SDK_INT})
+                App Version: ${context.packageManager.getPackageInfo(context.packageName, 0).versionName}
+            """.trimIndent()
+            
+            val eventLog = events.joinToString("\n") { 
+                val time = java.time.Instant.ofEpochMilli(it.timestamp)
+                    .atZone(java.time.ZoneId.of("Asia/Kolkata"))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"))
+                "$time: ${it.name} ${it.propertiesJson ?: ""}" 
+            }
+            
+            val body = "Please describe the issue below:\n\n\n\n--- Diagnostic Info ---\n$deviceInfo\n\n--- Recent Events ---\n$eventLog"
+            
+            val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+                data = android.net.Uri.parse("mailto:")
+                putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf("support@finsave.app"))
+                putExtra(android.content.Intent.EXTRA_SUBJECT, "FinSave Issue Report")
+                putExtra(android.content.Intent.EXTRA_TEXT, body)
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            
+            try {
+                context.startActivity(android.content.Intent.createChooser(intent, "Send Report via Email"))
+            } catch (e: Exception) {
+                _settingsMessage.value = "No email app found to send report"
+            }
+        }
     }
 }

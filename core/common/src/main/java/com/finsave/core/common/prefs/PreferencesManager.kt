@@ -47,4 +47,35 @@ class PreferencesManager @Inject constructor(
 
     fun setString(key: String, value: String) =
         prefs.edit().putString(key, value).apply()
+
+    // ── Unseen SMS Count (for bottom nav badge) ─────────────────────
+
+    fun getUnseenSmsCount(): Int =
+        prefs.getInt(Constants.PREFS_UNSEEN_SMS_COUNT, 0)
+
+    fun setUnseenSmsCount(count: Int) =
+        prefs.edit().putInt(Constants.PREFS_UNSEEN_SMS_COUNT, count).apply()
+
+    fun incrementUnseenSmsCount(delta: Int = 1) {
+        val current = getUnseenSmsCount()
+        setUnseenSmsCount(current + delta)
+    }
+
+    // ── Flow Accessors ──────────────────────────────────────────────
+
+    fun getBooleanFlow(key: String, default: Boolean = false): kotlinx.coroutines.flow.Flow<Boolean> =
+        kotlinx.coroutines.flow.flow {
+            while (true) {
+                emit(getBoolean(key, default))
+                kotlinx.coroutines.delay(1000) // Simple polling fallback for shared prefs
+            }
+        }
+
+    fun getIntFlow(key: String, default: Int = 0): kotlinx.coroutines.flow.Flow<Int> =
+        kotlinx.coroutines.flow.flow {
+            while (true) {
+                emit(getInt(key, default))
+                kotlinx.coroutines.delay(1000)
+            }
+        }
 }

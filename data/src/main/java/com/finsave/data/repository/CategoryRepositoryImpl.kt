@@ -7,12 +7,14 @@ import com.finsave.domain.model.Category
 import com.finsave.domain.repository.CategoryRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import com.finsave.data.local.sms.BankPatternConfigProvider
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class CategoryRepositoryImpl @Inject constructor(
-    private val categoryDao: CategoryDao
+    private val categoryDao: CategoryDao,
+    private val bankPatternConfigProvider: BankPatternConfigProvider
 ) : CategoryRepository {
 
     override fun getAllCategories(): Flow<List<Category>> =
@@ -45,5 +47,10 @@ class CategoryRepositoryImpl @Inject constructor(
             Category(name = "Travel", emoji = "✈️", colorHex = "#3F51B5", isDefault = true)
         )
         categoryDao.insertCategories(defaults.map { it.toEntity() })
+    }
+
+    override suspend fun getAutoCategoryMappings(): Map<String, String> {
+        bankPatternConfigProvider.warmCache()
+        return bankPatternConfigProvider.getConfig().autoCategoryMappings
     }
 }

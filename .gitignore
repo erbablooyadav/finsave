@@ -64,3 +64,6 @@ obj/
 *.txt
 *.docx
 *.html
+
+# Temporary build artifacts
+tmp_apk/

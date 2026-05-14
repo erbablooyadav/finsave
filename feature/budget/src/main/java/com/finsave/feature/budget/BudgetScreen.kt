@@ -12,8 +12,12 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,6 +28,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finsave.core.common.formatter.IndianNumberFormatter
+import com.finsave.core.ui.components.BudgetSkeleton
+import com.finsave.core.ui.components.EmptyStateView
+import com.finsave.core.ui.R
 import com.finsave.core.ui.theme.LocalSpacing
 import com.finsave.domain.model.BudgetSummary
 
@@ -37,6 +44,15 @@ fun BudgetScreen(
     val useIndianSystem by viewModel.useIndianNumberSystem.collectAsState()
     val spacing = LocalSpacing.current
 
+    var isLoading by remember { mutableStateOf(true) }
+    LaunchedEffect(budgetSummaries) {
+        if (budgetSummaries.isNotEmpty()) isLoading = false
+    }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(800)
+        isLoading = false
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         floatingActionButton = {
@@ -49,6 +65,13 @@ fun BudgetScreen(
             }
         }
     ) { paddingValues ->
+        if (isLoading) {
+            BudgetSkeleton(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            )
+        } else {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -69,7 +92,13 @@ fun BudgetScreen(
 
             if (budgetSummaries.isEmpty()) {
                 item {
-                    EmptyBudgetView()
+                    EmptyStateView(
+                        vectorRes = R.drawable.ic_empty_budget,
+                        title = "No budgets set",
+                        body = "Create a budget to track your spending limits",
+                        ctaText = "Create a Budget",
+                        onCtaClick = { viewModel.onAddBudgetClick() }
+                    )
                 }
             } else {
                 items(budgetSummaries, key = { it.budget.id }) { summary ->
@@ -82,6 +111,7 @@ fun BudgetScreen(
                 }
             }
         }
+        } // else isLoading
     }
 
     // Budget dialog

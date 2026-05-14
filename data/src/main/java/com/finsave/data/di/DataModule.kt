@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.finsave.core.common.Constants
 import com.finsave.core.common.prefs.PreferencesManager
 import com.finsave.data.local.FinSaveDatabase
+import com.finsave.data.local.migration.Migrations
 import com.finsave.data.local.dao.AccountDao
 import com.finsave.data.local.dao.BudgetDao
 import com.finsave.data.local.dao.CategoryDao
@@ -44,12 +45,6 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
-    private val MIGRATION_1_1 = object : Migration(1, 1) {
-        override fun migrate(database: SupportSQLiteDatabase) {
-            // Baseline migration — no schema changes from v1 to v1.
-        }
-    }
-
     @Provides
     @Singleton
     fun provideDatabase(
@@ -80,7 +75,7 @@ object DatabaseModule {
             FinSaveDatabase.DATABASE_NAME
         )
             .openHelperFactory(factory)
-            .addMigrations(MIGRATION_1_1)
+            .addMigrations(*Migrations.ALL_MIGRATIONS)
             .build()
 
         Arrays.fill(passphrase, 0)
@@ -118,6 +113,14 @@ object DatabaseModule {
     @Provides
     fun provideSplitterSplitDao(database: FinSaveDatabase): SplitterSplitDao =
         database.splitterSplitDao()
+
+    @Provides
+    fun provideAnalyticsDao(database: FinSaveDatabase): com.finsave.data.local.dao.AnalyticsDao =
+        database.analyticsDao()
+
+    @Provides
+    @Singleton
+    fun provideGson(): com.google.gson.Gson = com.google.gson.Gson()
 }
 
 /**
@@ -171,4 +174,10 @@ abstract class RepositoryModule {
     abstract fun bindMerchantCatalogRepository(
         impl: MerchantCatalogRepositoryImpl
     ): MerchantCatalogRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAnalyticsRepository(
+        impl: com.finsave.data.repository.AnalyticsRepositoryImpl
+    ): com.finsave.domain.repository.AnalyticsRepository
 }

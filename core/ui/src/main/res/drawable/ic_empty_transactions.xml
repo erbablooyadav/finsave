@@ -1,0 +1,41 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    <!-- Receipt body -->
+    <path
+        android:pathData="M25,15 L25,105 L95,105 L95,15 Z"
+        android:strokeColor="#000000"
+        android:strokeWidth="4"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+    <!-- Receipt lines -->
+    <path
+        android:pathData="M38,38 L82,38"
+        android:strokeColor="#000000"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M38,52 L70,52"
+        android:strokeColor="#000000"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M38,66 L75,66"
+        android:strokeColor="#000000"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"/>
+    <!-- Plus circle -->
+    <path
+        android:pathData="M82,80 m-16,0 a16,16 0 1,0 32,0 a16,16 0 1,0 -32,0"
+        android:strokeColor="#000000"
+        android:strokeWidth="3.5"
+        android:fillColor="#00000000"/>
+    <path
+        android:pathData="M82,74 L82,86 M76,80 L88,80"
+        android:strokeColor="#000000"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"/>
+</vector>

@@ -18,35 +18,31 @@ import com.finsave.data.local.entity.SplitterExpenseSplitEntity
 import com.finsave.data.local.entity.SplitterGroupEntity
 import com.finsave.data.local.entity.SplitterMemberEntity
 import com.finsave.data.local.entity.TransactionEntity
+import com.finsave.data.local.entity.TransactionFtsEntity
+import com.finsave.data.local.entity.AnalyticsEventEntity
 
 /**
  * FinSave Room Database
  *
  * Version 1 baseline — all 8 entity tables.
- * SQLCipher encryption will be added in Phase 1D (Security Polish).
+ * Version 2 — Added TransactionFtsEntity for search performance.
  *
- * Current setup:
- * - Standard Room database without encryption
- * - Schema exported to /schemas for migration testing
- * - All entities indexed for query performance
- *
- * Phase 1D upgrade path:
- * - Replace SupportSQLiteOpenHelper.Factory with SQLCipher's
- * - Generate AES-256 key from Android Keystore
- * - Transparent to all DAO queries — zero code changes above DB layer
+ * SQLCipher encryption was added in Phase 1D (Security Polish).
  */
 @Database(
     entities = [
         TransactionEntity::class,
+        TransactionFtsEntity::class,
         CategoryEntity::class,
         AccountEntity::class,
         BudgetEntity::class,
         SplitterGroupEntity::class,
         SplitterMemberEntity::class,
         SplitterExpenseEntity::class,
-        SplitterExpenseSplitEntity::class
+        SplitterExpenseSplitEntity::class,
+        AnalyticsEventEntity::class
     ],
-    version = 1,
+    version = 3,
     exportSchema = true
 )
 abstract class FinSaveDatabase : RoomDatabase() {
@@ -59,6 +55,7 @@ abstract class FinSaveDatabase : RoomDatabase() {
     abstract fun splitterMemberDao(): SplitterMemberDao
     abstract fun splitterExpenseDao(): SplitterExpenseDao
     abstract fun splitterSplitDao(): SplitterSplitDao
+    abstract fun analyticsDao(): com.finsave.data.local.dao.AnalyticsDao
 
     companion object {
         const val DATABASE_NAME = "finsave_database"

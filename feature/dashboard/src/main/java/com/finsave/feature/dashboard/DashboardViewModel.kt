@@ -14,6 +14,9 @@ import com.finsave.domain.usecase.transaction.GetSpendingSummaryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
+import com.finsave.domain.repository.TransactionRepository
 import android.content.Context
 import java.time.LocalDate
 import java.time.YearMonth
@@ -42,6 +45,7 @@ class DashboardViewModel @Inject constructor(
     private val getSpendingSummaryUseCase: GetSpendingSummaryUseCase,
     private val accountRepository: AccountRepository,
     private val budgetRepository: com.finsave.domain.repository.BudgetRepository,
+    private val transactionRepository: TransactionRepository,
     private val preferencesManager: PreferencesManager,
     private val dataStoreManager: DataStoreManager,
     @ApplicationContext private val appContext: Context
@@ -60,7 +64,19 @@ class DashboardViewModel @Inject constructor(
     val totalBalancePaise = accountRepository.getTotalBalance()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
         
-    val daysRemaining: Long get() = calculateDaysRemaining()
+    // Reactive daysRemaining — recalculates on every budget change
+    val daysRemaining: StateFlow<Int> = budgetRepository.getActiveBudgets()
+        .combine(flow { emit(LocalDate.now(ZoneId.of("Asia/Kolkata"))) }) { _, _ ->
+            calculateDaysRemaining().toInt()
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), calculateDaysRemaining().toInt())
+
+    // Total budget amount (from the overall budget where categoryId == null)
+    val totalBudgetPaise: StateFlow<Long> = budgetRepository.getActiveBudgets()
+        .map { budgets ->
+            budgets.firstOrNull { it.categoryId == null }?.limitAmountPaise ?: 0L
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
     
     val useIndianNumberSystem = MutableStateFlow(
         preferencesManager.getBoolean(com.finsave.core.common.Constants.PREFS_USE_INDIAN_NUMBER_SYSTEM, true)
@@ -78,13 +94,45 @@ class DashboardViewModel @Inject constructor(
     val budgetStreakCount: StateFlow<Int> = dataStoreManager.budgetStreak
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
+    val bestStreak: StateFlow<Int> = dataStoreManager.bestStreak
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    // A streak is considered broken if the last broken date was yesterday (relative to today).
+    // Or if current streak is 0 and it was broken today or yesterday.
+    val isStreakBroken: StateFlow<Boolean> = flow {
+        val lastBrokenStr = preferencesManager.getString(Constants.PREFS_LAST_STREAK_BROKEN_DATE, "")
+        val broken = if (lastBrokenStr.isEmpty()) false
+        else {
+            try {
+                val lastBrokenDate = LocalDate.parse(lastBrokenStr)
+                val today = LocalDate.now(ZoneId.of("Asia/Kolkata"))
+                val diff = java.time.temporal.ChronoUnit.DAYS.between(lastBrokenDate, today)
+                diff == 1L || diff == 0L
+            } catch (e: Exception) {
+                false
+            }
+        }
+        emit(broken)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val showFirstTransactionConfetti: StateFlow<Boolean> = combine(
+        transactionRepository.getTransactionCount(),
+        preferencesManager.getBooleanFlow(Constants.PREFS_HAS_SHOWN_FIRST_TX_CONFETTI, false)
+    ) { count, hasShown ->
+        count == 1 && !hasShown
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun markConfettiShown() {
+        preferencesManager.setBoolean(Constants.PREFS_HAS_SHOWN_FIRST_TX_CONFETTI, true)
+    }
+
     val smsImportProgress: StateFlow<SmsImportProgressUi?> =
         WorkManager.getInstance(appContext)
-            .getWorkInfosByTagFlow(Constants.WORK_SMS_MANUAL_IMPORT)
+            .getWorkInfosForUniqueWorkFlow(Constants.WORK_SMS_MANUAL_IMPORT)
             .map { infos ->
-                val running = infos.firstOrNull { it.state == WorkInfo.State.RUNNING }
-                if (running != null) {
-                    running.toSmsImportProgress()
+                val activeWork = infos.firstOrNull { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
+                if (activeWork != null) {
+                    activeWork.toSmsImportProgress()
                 } else {
                     null
                 }
@@ -93,7 +141,7 @@ class DashboardViewModel @Inject constructor(
 
     val smsImportCompletion: StateFlow<SmsImportCompletionUi?> =
         WorkManager.getInstance(appContext)
-            .getWorkInfosByTagFlow(Constants.WORK_SMS_MANUAL_IMPORT)
+            .getWorkInfosForUniqueWorkFlow(Constants.WORK_SMS_MANUAL_IMPORT)
             .map { infos ->
                 val completion = infos.firstOrNull { it.state == WorkInfo.State.SUCCEEDED }?.toCompletionSummary()
                 val lastShown = preferencesManager.getString(Constants.PREFS_LAST_SMS_IMPORT_COMPLETION_ID, "")

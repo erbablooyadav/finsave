@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -60,7 +62,7 @@ fun SettingsScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        snackbarHost = { com.finsave.core.ui.components.FinSaveSnackbar(snackbarHostState) }
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
@@ -161,6 +163,13 @@ fun SettingsScreen(
                     buttonText = "Open",
                     onClick = onNavigateToCategories
                 )
+
+                SettingsButtonRow(
+                    title = "Report Issue",
+                    subtitle = "Send a diagnostic report to support",
+                    buttonText = "Report",
+                    onClick = { viewModel.generateIssueReport(context) }
+                )
             }
 
             item {
@@ -196,12 +205,19 @@ fun SettingsScreen(
                     onClick = { showClearDataDialog = true }
                 )
             }
+
+            item {
+                Spacer(modifier = Modifier.height(spacing.medium))
+                SettingsSectionTitle("Privacy & Security")
+                
+                PrivacyProofCard()
+            }
         }
 
         if (showClearDataDialog) {
             AlertDialog(
                 onDismissRequest = { showClearDataDialog = false },
-                icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = Color.Red) },
+                icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                 title = { Text("Clear All Data") },
                 text = { Text("Are you sure you want to delete all transactions, budgets, and splitter groups? This action cannot be undone.") },
                 confirmButton = {
@@ -210,7 +226,7 @@ fun SettingsScreen(
                             viewModel.clearAllData()
                             showClearDataDialog = false
                         },
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) {
                         Text("Delete Everything")
                     }
@@ -395,16 +411,51 @@ fun SettingsButtonRow(
                 text = title, 
                 style = MaterialTheme.typography.bodyLarge, 
                 fontWeight = FontWeight.SemiBold,
-                color = if (isDestructive) Color.Red else MaterialTheme.colorScheme.onSurface
+                color = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
             )
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Button(
             onClick = onClick,
-            colors = if (isDestructive) ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.1f), contentColor = Color.Red) 
+            colors = if (isDestructive) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.error) 
                      else ButtonDefaults.buttonColors()
         ) {
             Text(buttonText)
+        }
+    }
+}
+
+@Composable
+fun PrivacyProofCard() {
+    val spacing = LocalSpacing.current
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(spacing.medium)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.VerifiedUser,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(spacing.small))
+                Text(
+                    text = "Privacy Verified",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.height(spacing.small))
+            Text(
+                text = "FinSave works 100% offline. We do not request the 'INTERNET' permission in our application manifest. Your financial data never leaves this device.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
         }
     }
 }

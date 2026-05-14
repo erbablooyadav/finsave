@@ -8,6 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finsave.core.common.Constants.Routes
 import com.finsave.feature.accounts.AccountScreen
@@ -54,7 +55,10 @@ fun FinSaveNavHost(
         }
 
         // ── Dashboard ─────────────────────────────────────────────────────────
-        composable(route = Routes.DASHBOARD) {
+        composable(
+            route = Routes.DASHBOARD,
+            deepLinks = listOf(navDeepLink { uriPattern = "finsave://dashboard" })
+        ) {
             var showAddTransaction by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
             val addTxViewModel: AddTransactionViewModel = hiltViewModel()
 

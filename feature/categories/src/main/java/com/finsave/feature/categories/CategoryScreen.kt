@@ -84,7 +84,7 @@ fun CategoryScreen(
                 Icon(Icons.Default.Add, contentDescription = "Add Category")
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { com.finsave.core.ui.components.FinSaveSnackbar(snackbarHostState) }
     ) { paddingValues ->
         if (categories.isEmpty()) {
             EmptyCategoriesState(

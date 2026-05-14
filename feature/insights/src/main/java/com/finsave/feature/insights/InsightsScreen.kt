@@ -12,8 +12,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,8 +30,35 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.finsave.core.common.formatter.IndianNumberFormatter
 import com.finsave.core.ui.components.ChartSegment
 import com.finsave.core.ui.components.CustomDonutChart
+import com.finsave.core.ui.components.EmptyStateView
+import com.finsave.core.ui.components.InsightsSkeleton
+import com.finsave.core.ui.R
 import com.finsave.core.ui.theme.LocalSpacing
+import com.finsave.core.common.share.SpendDnaData
+import android.content.Intent
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.text.style.TextOverflow
+import com.finsave.core.ui.CalendarHeatmapChart
+import com.finsave.domain.model.Transaction
+import com.finsave.domain.model.TransactionType
+import java.time.format.DateTimeFormatter
 
+import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
+import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottom
+import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
+import com.patrykandpatrick.vico.compose.cartesian.layer.rememberColumnCartesianLayer
+import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
+import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
+import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
+import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
+import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModel
+import com.patrykandpatrick.vico.core.cartesian.data.ColumnCartesianLayerModel
+import com.patrykandpatrick.vico.core.cartesian.layer.ColumnCartesianLayer
+import com.patrykandpatrick.vico.compose.common.fill
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InsightsScreen(
     modifier: Modifier = Modifier,
@@ -37,13 +68,49 @@ fun InsightsScreen(
     val segments by viewModel.segments.collectAsState()
     val monthlyTrend by viewModel.monthlyTrend.collectAsState()
     val topMerchants by viewModel.topMerchants.collectAsState()
+    val topMerchantInsight by viewModel.topMerchantInsight.collectAsState()
     val dayOfWeekSpend by viewModel.dayOfWeekSpend.collectAsState()
     val useIndianSystem by viewModel.useIndianNumberSystem.collectAsState()
+    val spendDna by viewModel.spendDnaData.collectAsState()
+    val dailySpendMap by viewModel.dailySpendMap.collectAsState()
+    val selectedDayTransactions by viewModel.selectedDayTransactions.collectAsState()
+    val selectedCalendarDate by viewModel.selectedCalendarDate.collectAsState()
+    var showDayDetails by remember { mutableStateOf(false) }
+    
     val spacing = LocalSpacing.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    // E2.2: Collect share URI and launch share intent
+    LaunchedEffect(Unit) {
+        viewModel.shareUri.collect { uri ->
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "image/png"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, "Share Spend DNA"))
+        }
+    }
+
+    var isLoading by remember { mutableStateOf(true) }
+    LaunchedEffect(segments) {
+        if (segments.isNotEmpty()) isLoading = false
+    }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(800)
+        isLoading = false
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize()
     ) { paddingValues ->
+        if (isLoading) {
+            InsightsSkeleton(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            )
+        } else {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -71,7 +138,10 @@ fun InsightsScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = spacing.large),
+                        .padding(vertical = spacing.large)
+                        .semantics(mergeDescendants = true) {
+                            contentDescription = "Spending breakdown chart. Total spent: ${IndianNumberFormatter.formatForAccessibility(totalSpendPaise)}"
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     CustomDonutChart(
@@ -115,10 +185,10 @@ fun InsightsScreen(
 
             if (segments.isEmpty()) {
                 item {
-                    Text(
-                        text = "No spending data available this month.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    EmptyStateView(
+                        vectorRes = R.drawable.ic_empty_transactions,
+                        title = "No spending data",
+                        body = "Add transactions to see your spending breakdown"
                     )
                 }
             } else {
@@ -142,6 +212,7 @@ fun InsightsScreen(
             item {
                 TopMerchantsSection(
                     topMerchants = topMerchants,
+                    insightCopy = topMerchantInsight,
                     useIndianSystem = useIndianSystem
                 )
             }
@@ -152,6 +223,152 @@ fun InsightsScreen(
                     useIndianSystem = useIndianSystem
                 )
             }
+
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
+                    Text(
+                        text = "Spending Heatmap",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    CalendarHeatmapChart(
+                        dailySpend = dailySpendMap,
+                        onDayClick = { date ->
+                            viewModel.onCalendarDaySelected(date)
+                            showDayDetails = true
+                        }
+                    )
+                }
+            }
+
+            // E2.2: Spend DNA Personality Card
+            if (spendDna != null) {
+                item {
+                    SpendDnaCard(
+                        data = spendDna!!,
+                        onShare = { viewModel.onShareSpendDna(context) }
+                    )
+                }
+            }
+        }
+        } // else isLoading
+
+        if (showDayDetails && selectedCalendarDate != null) {
+            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            val dateFormatter = remember { DateTimeFormatter.ofPattern("EEEE, d MMM yyyy") }
+            
+            ModalBottomSheet(
+                onDismissRequest = { showDayDetails = false },
+                sheetState = sheetState,
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = spacing.large)
+                        .padding(bottom = spacing.large)
+                ) {
+                    Text(
+                        text = selectedCalendarDate!!.format(dateFormatter),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = spacing.medium)
+                    )
+                    
+                    if (selectedDayTransactions.isEmpty()) {
+                        EmptyStateView(
+                            vectorRes = R.drawable.ic_empty_transactions,
+                            title = "No transactions",
+                            body = "You didn't spend anything on this day."
+                        )
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(spacing.small)
+                        ) {
+                            items(selectedDayTransactions, key = { it.id }) { transaction ->
+                                DayTransactionRowItem(
+                                    transaction = transaction,
+                                    useIndianSystem = useIndianSystem
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayTransactionRowItem(
+    transaction: Transaction,
+    useIndianSystem: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = transaction.merchantName.take(1).uppercase(),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = transaction.merchantName.ifBlank { "Transaction" },
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (transaction.note.isNotBlank()) {
+                    Text(
+                        text = transaction.note,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Text(
+                text = IndianNumberFormatter.format(
+                    paiseAmount = transaction.amountPaise,
+                    useIndianSystem = useIndianSystem,
+                    showPaise = false,
+                    showSymbol = true
+                ),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = when (transaction.type) {
+                    TransactionType.DEBIT -> MaterialTheme.colorScheme.error
+                    TransactionType.CREDIT -> MaterialTheme.colorScheme.secondary
+                    TransactionType.TRANSFER -> MaterialTheme.colorScheme.onSurface
+                },
+                modifier = Modifier.semantics {
+                    contentDescription = IndianNumberFormatter.formatForAccessibility(transaction.amountPaise)
+                }
+            )
         }
     }
 }
@@ -220,7 +437,6 @@ private fun MonthlySpendingSection(
     useIndianSystem: Boolean
 ) {
     val spacing = LocalSpacing.current
-    val maxSpend = monthlyTrend.maxOfOrNull { it.debitPaise } ?: 0L
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.medium)) {
         Text(
@@ -236,59 +452,50 @@ private fun MonthlySpendingSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(172.dp),
-                horizontalArrangement = Arrangement.spacedBy(spacing.small),
-                verticalAlignment = Alignment.Bottom
-            ) {
-                monthlyTrend.forEachIndexed { index, point ->
-                    val fraction = barFraction(point.debitPaise, maxSpend)
-                    val barColor = if (index == monthlyTrend.lastIndex) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant
+            val model = remember(monthlyTrend) {
+                CartesianChartModel(
+                    ColumnCartesianLayerModel.build {
+                        series(monthlyTrend.map { it.debitPaise })
                     }
+                )
+            }
 
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = IndianNumberFormatter.formatCompact(point.debitPaise),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            modifier = Modifier.semantics {
-                                contentDescription = "${point.monthLabel} spending ${IndianNumberFormatter.formatForAccessibility(point.debitPaise)}"
+            val primary = MaterialTheme.colorScheme.primary
+            val primaryContainer = MaterialTheme.colorScheme.primaryContainer
+
+            CartesianChartHost(
+                chart = rememberCartesianChart(
+                    rememberColumnCartesianLayer(
+                        columnProvider = ColumnCartesianLayer.ColumnProvider.series(
+                            monthlyTrend.mapIndexed { index, _ ->
+                                rememberLineComponent(
+                                    fill = fill(if (index == monthlyTrend.lastIndex) primary else primaryContainer),
+                                    thickness = 24.dp,
+                                    shape = com.patrykandpatrick.vico.core.common.shape.CorneredShape.rounded(topLeftPercent = 50, topRightPercent = 50)
+                                )
                             }
                         )
-                        Spacer(modifier = Modifier.height(spacing.extraSmall))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(104.dp),
-                            contentAlignment = Alignment.BottomCenter
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .fillMaxHeight(fraction)
-                                    .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
-                                    .background(barColor)
-                            )
+                    ),
+                    startAxis = VerticalAxis.rememberStart(
+                        valueFormatter = { _, value, _ ->
+                            IndianNumberFormatter.formatCompact(value.toLong())
                         }
-                        Spacer(modifier = Modifier.height(spacing.extraSmall))
-                        Text(
-                            text = point.monthLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
+                    ),
+                    bottomAxis = HorizontalAxis.rememberBottom(
+                        valueFormatter = { _, value, _ ->
+                            val index = value.toInt()
+                            if (index in monthlyTrend.indices) monthlyTrend[index].monthLabel else ""
+                        }
+                    )
+                ),
+                model = model,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(172.dp)
+                    .semantics {
+                        contentDescription = "Monthly spending trend chart showing ${monthlyTrend.size} months"
                     }
-                }
-            }
+            )
         }
     }
 }
@@ -296,6 +503,7 @@ private fun MonthlySpendingSection(
 @Composable
 private fun TopMerchantsSection(
     topMerchants: List<TopMerchantRow>,
+    insightCopy: String?,
     useIndianSystem: Boolean
 ) {
     val spacing = LocalSpacing.current
@@ -314,7 +522,16 @@ private fun TopMerchantsSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
-            topMerchants.forEach { merchant ->
+            if (!insightCopy.isNullOrBlank()) {
+                Text(
+                    text = insightCopy,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = spacing.small)
+                )
+            }
+
+            topMerchants.forEachIndexed { index, merchant ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp),
@@ -328,6 +545,13 @@ private fun TopMerchantsSection(
                             .padding(spacing.medium),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Text(
+                            text = if (index == 0) "🏆" else "${index + 1}.",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.width(32.dp)
+                        )
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = merchant.name,
@@ -388,7 +612,10 @@ private fun DayOfWeekSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(156.dp),
+                    .height(156.dp)
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = "Daily spending bar chart"
+                    },
                 horizontalArrangement = Arrangement.spacedBy(spacing.extraSmall),
                 verticalAlignment = Alignment.Bottom
             ) {
@@ -442,4 +669,124 @@ private fun DayOfWeekSection(
 private fun barFraction(value: Long, maxValue: Long): Float {
     if (value <= 0L || maxValue <= 0L) return 0f
     return (value.toFloat() / maxValue.toFloat()).coerceIn(0.08f, 1f)
+}
+
+/**
+ * Spend DNA Personality Card — Spotify Wrapped-style card.
+ * Shows the user's spending personality for the current month with a Share button.
+ * E2.2
+ */
+@Composable
+private fun SpendDnaCard(
+    data: SpendDnaData,
+    onShare: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val spacing = LocalSpacing.current
+    val gradientStart = Color(data.personalityType.gradientStart)
+    val gradientEnd = Color(data.personalityType.gradientEnd)
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(gradientStart, gradientEnd)
+                    ),
+                    shape = RoundedCornerShape(20.dp)
+                )
+                .padding(spacing.large)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(spacing.medium)
+            ) {
+                // Title
+                Text(
+                    text = "My Spend DNA",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontWeight = FontWeight.Medium
+                )
+
+                // Personality emoji + name
+                Text(
+                    text = data.personalityType.emoji,
+                    style = MaterialTheme.typography.displayMedium
+                )
+                Text(
+                    text = data.personalityType.displayName,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+
+                // Top category subtitle
+                Text(
+                    text = "${data.topCategoryEmoji} ${com.finsave.core.common.formatter.IndianNumberFormatter.format(data.topCategoryAmount)} on ${data.topCategory}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+
+                // Stats row
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(spacing.large),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = com.finsave.core.common.formatter.IndianNumberFormatter.format(data.totalSpent, showPaise = false),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Spent",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                    }
+                    Text("•", color = Color.White.copy(alpha = 0.5f), style = MaterialTheme.typography.titleLarge)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "${data.savingsPercent}%",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Saved",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+
+                // Month
+                Text(
+                    text = data.month,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+
+                // Share button
+                androidx.compose.material3.FilledTonalButton(
+                    onClick = onShare,
+                    colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                        containerColor = Color.White.copy(alpha = 0.2f),
+                        contentColor = Color.White
+                    ),
+                    modifier = Modifier.semantics { contentDescription = "Share My Spend DNA" }
+                ) {
+                    Text("Share My Spend DNA")
+                }
+            }
+        }
+    }
 }

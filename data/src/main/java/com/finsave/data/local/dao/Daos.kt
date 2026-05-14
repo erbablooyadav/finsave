@@ -25,6 +25,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY date DESC, created_at DESC")
     fun getAllTransactions(): Flow<List<TransactionEntity>>
 
+    @Query("SELECT COUNT(*) FROM transactions")
+    fun getTransactionCount(): Flow<Int>
+
     @Query("SELECT * FROM transactions WHERE date BETWEEN :startDate AND :endDate ORDER BY date DESC")
     fun getTransactionsByDateRange(startDate: Long, endDate: Long): Flow<List<TransactionEntity>>
 
@@ -51,6 +54,14 @@ interface TransactionDao {
         ORDER BY date DESC
     """)
     fun searchTransactions(query: String): Flow<List<TransactionEntity>>
+    
+    @Query("""
+        SELECT t.* FROM transactions t 
+        JOIN transactions_fts f ON t.id = f.rowid 
+        WHERE transactions_fts MATCH :query
+        ORDER BY t.date DESC
+    """)
+    fun searchTransactionsFts(query: String): Flow<List<TransactionEntity>>
 
     @Query("""
         SELECT COALESCE(SUM(amount_paise), 0) FROM transactions 
@@ -282,4 +293,23 @@ interface SplitterSplitDao {
 
     @Query("DELETE FROM splitter_expense_splits")
     suspend fun deleteAllSplits()
+}
+
+@Dao
+interface AnalyticsDao {
+
+    @Query("SELECT * FROM analytics_events ORDER BY timestamp DESC")
+    fun getAllEvents(): Flow<List<com.finsave.data.local.entity.AnalyticsEventEntity>>
+
+    @Query("SELECT * FROM analytics_events ORDER BY timestamp DESC LIMIT :limit")
+    fun getRecentEvents(limit: Int): Flow<List<com.finsave.data.local.entity.AnalyticsEventEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertEvent(event: com.finsave.data.local.entity.AnalyticsEventEntity)
+
+    @Query("DELETE FROM analytics_events WHERE timestamp < :timestamp")
+    suspend fun deleteEventsOlderThan(timestamp: Long)
+
+    @Query("DELETE FROM analytics_events")
+    suspend fun deleteAllEvents()
 }

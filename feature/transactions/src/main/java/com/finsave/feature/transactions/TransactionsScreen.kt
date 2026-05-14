@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -26,13 +27,20 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finsave.core.common.formatter.IndianNumberFormatter
+import com.finsave.domain.model.Category
 import com.finsave.domain.model.Transaction
 import com.finsave.domain.model.TransactionType
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.time.YearMonth
+import com.finsave.core.ui.components.TransactionsSkeleton
+import com.finsave.core.ui.components.EmptyStateView
+import com.finsave.core.ui.R
+import com.finsave.core.ui.components.FinSaveSnackbar
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -48,6 +56,31 @@ fun TransactionsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showAdvancedFilters by remember { mutableStateOf(false) }
     val collapsedMonths = remember { mutableStateMapOf<String, Boolean>() }
+    val categories by viewModel.categories.collectAsState()
+
+    // Loading detection
+    var isLoading by remember { mutableStateOf(true) }
+    LaunchedEffect(transactions) {
+        if (transactions.isNotEmpty()) isLoading = false
+    }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(800)
+        isLoading = false
+    }
+
+    // Collect snackbar events (undo support)
+    LaunchedEffect(Unit) {
+        viewModel.snackbarMessage.collect { event ->
+            val result = snackbarHostState.showSnackbar(
+                message = event.message,
+                actionLabel = event.actionLabel,
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                event.onAction?.invoke()
+            }
+        }
+    }
 
     LaunchedEffect(errorMessage) {
         errorMessage?.let { message ->
@@ -93,27 +126,38 @@ fun TransactionsScreen(
                 )
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { FinSaveSnackbar(snackbarHostState) }
     ) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            if (isLoading) {
+                TransactionsSkeleton(
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
             when {
                 transactions.isEmpty() && filterState.query.isBlank() &&
                         filterState.typeFilter == TransactionTypeFilter.ALL &&
                         filterState.startDate == null && filterState.endDate == null -> {
-                    // Empty state - no transactions at all
-                    EmptyState(
-                        message = "No transactions yet — add one with the + button",
+                                    // Empty state - no transactions at all
+                    EmptyStateView(
+                        vectorRes = R.drawable.ic_empty_transactions,
+                        title = "No transactions yet",
+                        body = "Add your first transaction using the + button below",
+                        ctaText = "Add Transaction",
+                        onCtaClick = { /* AddTransaction handled by FAB on parent */ },
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
                 transactions.isEmpty() -> {
-                    // Empty state - no results after filtering
-                    EmptyState(
-                        message = "No transactions found",
+                                    // Empty state - no results after filtering
+                    EmptyStateView(
+                        vectorRes = R.drawable.ic_empty_transactions,
+                        title = "No results found",
+                        body = "Try adjusting your search or filters",
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
@@ -139,10 +183,11 @@ fun TransactionsScreen(
                             }
                             if (!isCollapsed) {
                                 items(items = monthTransactions, key = { it.id }) { transaction ->
-                                    TransactionRow(
+                                    TransactionRowItem(
                                         transaction = transaction,
+                                        category = categories[transaction.categoryId],
                                         onClick = { viewModel.onTransactionClick(transaction) },
-                                        onDelete = { viewModel.onSwipeToDelete(transaction) },
+                                        onDelete = { viewModel.onSwipeDelete(transaction) },
                                         modifier = Modifier.animateItem()
                                     )
                                 }
@@ -151,6 +196,7 @@ fun TransactionsScreen(
                     }
                 }
             }
+            } // else isLoading
         }
     }
 
@@ -462,66 +508,129 @@ private fun String.toLocalDateOrNull(): LocalDate? {
     return runCatching { LocalDate.parse(cleaned) }.getOrNull()
 }
 
+/**
+ * TransactionRowItem — Redesigned transaction row with category color, SMS badge, and swipe-to-delete.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TransactionRow(
+fun TransactionRowItem(
     transaction: Transaction,
+    category: Category?,
     onClick: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { dismissValue ->
+            if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
+                onDelete()
+                true
+            } else false
+        }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            // Red background with trash icon
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.error)
+                    .padding(horizontal = 20.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = MaterialTheme.colorScheme.onError
+                )
+            }
+        },
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = true,
         modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp)
     ) {
-        Row(
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .clickable(onClick = onClick),
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = transaction.merchantName.ifBlank { "Transaction" },
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = transaction.date.format(DateTimeFormatter.ofPattern("dd MMM yyyy")),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (transaction.note.isNotBlank()) {
+                // Category emoji circle with color
+                val categoryColor = category?.colorHex?.let { hex ->
+                    try {
+                        Color(android.graphics.Color.parseColor(hex))
+                    } catch (_: Exception) {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    }
+                } ?: MaterialTheme.colorScheme.surfaceVariant
+
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(categoryColor.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        text = transaction.note,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = category?.emoji ?: transaction.merchantName.take(1).uppercase(),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Merchant name + relative time
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = transaction.merchantName.ifBlank { "Transaction" },
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    Text(
+                        text = formatRelativeTime(transaction.date),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-            }
-            
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
+
+                // AUTO badge for SMS-imported transactions
+                if (transaction.isAutoImported) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "AUTO",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+
+                // Amount with color
                 Text(
                     text = IndianNumberFormatter.format(transaction.amountPaise),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Bold,
                     color = when (transaction.type) {
                         TransactionType.DEBIT -> MaterialTheme.colorScheme.error
-                        TransactionType.CREDIT -> Color(0xFF10B981)
+                        TransactionType.CREDIT -> MaterialTheme.colorScheme.secondary
                         TransactionType.TRANSFER -> MaterialTheme.colorScheme.onSurface
                     },
                     modifier = Modifier.semantics {
@@ -533,19 +642,22 @@ private fun TransactionRow(
                         }
                     }
                 )
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(24.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete transaction",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
             }
         }
+    }
+}
+
+/**
+ * Formats a date as relative time string.
+ */
+private fun formatRelativeTime(date: LocalDate): String {
+    val today = LocalDate.now()
+    val daysBetween = ChronoUnit.DAYS.between(date, today)
+    return when {
+        daysBetween == 0L -> "Today"
+        daysBetween == 1L -> "Yesterday"
+        daysBetween < 7L -> "${daysBetween}d ago"
+        else -> date.format(DateTimeFormatter.ofPattern("EEE dd MMM"))
     }
 }
 

@@ -1,15 +1,23 @@
 package com.finsave.feature.transactions
 
 import android.Manifest
+import com.finsave.core.ui.components.FinSaveSnackbar
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.view.HapticFeedbackConstants
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -19,15 +27,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,12 +51,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finsave.core.ui.theme.LocalSpacing
 import com.finsave.domain.model.TransactionType
@@ -61,6 +75,19 @@ fun AddTransactionBottomSheet(
     modifier: Modifier = Modifier,
     viewModel: AddTransactionViewModel = hiltViewModel()
 ) {
+    var showQrScanner by remember { mutableStateOf(false) }
+
+    if (showQrScanner) {
+        UpiQrScannerScreen(
+            onQrScanned = { uri ->
+                viewModel.onUpiQrScanned(uri)
+                showQrScanner = false
+            },
+            onNavigateBack = { showQrScanner = false }
+        )
+        return
+    }
+
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -77,11 +104,23 @@ fun AddTransactionBottomSheet(
     val isEditMode by viewModel.isEditMode.collectAsState()
 
     var amountString by remember { mutableStateOf("") }
+    val amountDisplayText by viewModel.amountDisplay.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var isListening by remember { mutableStateOf(false) }
     var speechRecognizer by remember { mutableStateOf<SpeechRecognizer?>(null) }
     val dateFormatter = remember { DateTimeFormatter.ofPattern("dd MMM yyyy") }
+
+    var showCameraRationale by remember { mutableStateOf(false) }
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            showQrScanner = true
+        } else {
+            Toast.makeText(context, "Camera permission is required to scan QR codes.", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     fun startVoiceListening() {
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
@@ -208,7 +247,7 @@ fun AddTransactionBottomSheet(
         val scrollState = rememberScrollState()
 
         Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) },
+            snackbarHost = { FinSaveSnackbar(snackbarHostState) },
             containerColor = Color.Transparent
         ) { paddingValues ->
             Column(
@@ -243,76 +282,60 @@ fun AddTransactionBottomSheet(
                     }
                 }
 
-                // Amount Input — opens system decimal keyboard
+                // Amount Display — driven by NumpadKeyboard
                 val amountColor = if (transactionType == TransactionType.DEBIT)
                     MaterialTheme.colorScheme.error
                 else
                     MaterialTheme.colorScheme.primary
 
-                OutlinedTextField(
-                    value = amountString,
-                    onValueChange = { raw ->
-                        // Allow only digits + single decimal point, max 2 decimal places
-                        val filtered = raw.filter { it.isDigit() || it == '.' }
-                        val parts = filtered.split('.')
-                        if (parts.size <= 2) {
-                            val intPart = parts[0].take(9).trimStart('0').ifEmpty { if (parts.size == 2) "0" else "" }
-                            val validated = if (parts.size == 2) "$intPart.${parts[1].take(2)}" else intPart
-                            amountString = validated
-                            viewModel.onAmountChange(validated)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    textStyle = MaterialTheme.typography.displaySmall.copy(
-                        textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.Bold,
-                        color = amountColor
-                    ),
-                    placeholder = {
-                        Text(
-                            "0",
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.displaySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                        )
-                    },
-                    prefix = {
-                        Text(
-                            "₹",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = amountColor
-                        )
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal,
-                        imeAction = ImeAction.Next
-                    ),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = amountColor,
-                        unfocusedBorderColor = amountColor.copy(alpha = 0.5f)
-                    )
+                AmountDisplay(
+                    displayText = amountDisplayText,
+                    color = amountColor
+                )
+
+                Spacer(modifier = Modifier.height(spacing.small))
+
+                // Custom NumpadKeyboard
+                NumpadKeyboard(
+                    onKey = viewModel::onNumpadKey
                 )
 
                 Spacer(modifier = Modifier.height(spacing.medium))
 
                 // Merchant Input
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(spacing.small)
-                ) {
-                    OutlinedTextField(
-                        value = merchantName,
-                        onValueChange = viewModel::onMerchantChange,
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("Merchant or Note") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(spacing.small)
+                    ) {
+                        OutlinedTextField(
+                            value = merchantName,
+                            onValueChange = viewModel::onMerchantChange,
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text("Merchant or Note") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        IconButton(
+                        onClick = {
+                            if (context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                                showQrScanner = true
+                            } else {
+                                showCameraRationale = true
+                            }
+                        },
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.QrCodeScanner,
+                            contentDescription = "Scan UPI QR",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     IconButton(
                         onClick = {
                             if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
@@ -343,17 +366,28 @@ fun AddTransactionBottomSheet(
                     VoiceListeningIndicator()
                 }
 
-                if (merchantSuggestions.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(spacing.small))
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-                        items(merchantSuggestions) { suggestion ->
-                            SuggestionChip(
-                                onClick = { viewModel.onMerchantSuggestionSelect(suggestion) },
-                                label = { Text(suggestion, maxLines = 1) }
-                            )
-                        }
+                DropdownMenu(
+                    expanded = merchantSuggestions.isNotEmpty() && merchantName.length >= 2,
+                    onDismissRequest = { /* Handled implicitly by clicking away or selecting */ },
+                    properties = androidx.compose.ui.window.PopupProperties(focusable = false),
+                    modifier = Modifier.fillMaxWidth(0.65f)
+                ) {
+                    merchantSuggestions.forEach { suggestion ->
+                        DropdownMenuItem(
+                            text = { 
+                                Text(
+                                    text = suggestion.name, 
+                                    fontWeight = if (suggestion.isRecent) FontWeight.Bold else FontWeight.Normal,
+                                    maxLines = 1
+                                ) 
+                            },
+                            onClick = { 
+                                viewModel.onMerchantSuggestionSelect(suggestion.name)
+                            }
+                        )
                     }
-                }
+                } // End of DropdownMenu
+                } // End of Box
 
                 Spacer(modifier = Modifier.height(spacing.medium))
 
@@ -453,6 +487,27 @@ fun AddTransactionBottomSheet(
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        if (showCameraRationale) {
+            AlertDialog(
+                onDismissRequest = { showCameraRationale = false },
+                title = { Text("Camera Permission Required") },
+                text = { Text("FinSave needs camera access to scan UPI QR codes.\nNo photos are taken or stored.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showCameraRationale = false
+                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    }) {
+                        Text("Grant")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showCameraRationale = false }) {
                         Text("Cancel")
                     }
                 }
@@ -661,3 +716,105 @@ private fun VoiceListeningIndicator() {
     }
 }
 
+/**
+ * AmountDisplay — Shows the live formatted amount with slide+fade transition.
+ */
+@Composable
+private fun AmountDisplay(
+    displayText: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        AnimatedContent(
+            targetState = displayText,
+            transitionSpec = {
+                (slideInVertically { -it / 2 } + fadeIn()) togetherWith
+                    (slideOutVertically { it / 2 } + fadeOut())
+            },
+            label = "amountDisplay"
+        ) { text ->
+            Text(
+                text = text,
+                style = MaterialTheme.typography.displayMedium,
+                fontWeight = FontWeight.Bold,
+                color = color,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+/**
+ * NumpadKeyboard — 3×4 grid numpad with haptic feedback.
+ * Keys: 1,2,3,4,5,6,7,8,9,.,0,⌫
+ */
+@Composable
+private fun NumpadKeyboard(
+    onKey: (NumpadKey) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val view = LocalView.current
+    val keys = listOf(
+        NumpadKey.Digit(1), NumpadKey.Digit(2), NumpadKey.Digit(3),
+        NumpadKey.Digit(4), NumpadKey.Digit(5), NumpadKey.Digit(6),
+        NumpadKey.Digit(7), NumpadKey.Digit(8), NumpadKey.Digit(9),
+        NumpadKey.Dot, NumpadKey.Digit(0), NumpadKey.Backspace
+    )
+
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(3),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(260.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        userScrollEnabled = false
+    ) {
+        items(keys) { key ->
+            Surface(
+                modifier = Modifier
+                    .height(60.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable {
+                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        onKey(key)
+                    },
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                tonalElevation = 1.dp,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    when (key) {
+                        is NumpadKey.Digit -> Text(
+                            text = key.value.toString(),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                        is NumpadKey.Dot -> Text(
+                            text = ".",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                        is NumpadKey.Backspace -> Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Backspace,
+                            contentDescription = "Backspace",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

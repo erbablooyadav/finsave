@@ -1,6 +1,9 @@
 package com.finsave.app.workers
 
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import androidx.core.net.toUri
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -68,7 +71,21 @@ class DailyDigestWorker @AssistedInject constructor(
 
             // Post notification only if spend > 0
             if (totalSpent > 0) {
-                NotificationHelper.postDailyDigest(context, totalSpent, txCount)
+                val intent = Intent(
+                    Intent.ACTION_VIEW,
+                    "finsave://dashboard".toUri()
+                ).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                }
+
+                val pendingIntent = PendingIntent.getActivity(
+                    context,
+                    0,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                NotificationHelper.postDailyDigest(context, totalSpent, txCount, pendingIntent)
             }
 
             // Update streak and score
@@ -106,7 +123,10 @@ class DailyDigestWorker @AssistedInject constructor(
         val newStreak = if (totalBudget != null) {
             // Check if today's spending exceeds the total budget
             val streakBroken = todaySpentPaise > totalBudget.limitAmountPaise
-            if (streakBroken) 0 else currentStreak + 1
+            if (streakBroken) {
+                preferencesManager.setString(Constants.PREFS_LAST_STREAK_BROKEN_DATE, today.toString())
+                0
+            } else currentStreak + 1
         } else {
             // No total budget configured — keep current streak
             currentStreak
@@ -114,6 +134,11 @@ class DailyDigestWorker @AssistedInject constructor(
 
         dataStoreManager.saveStreak(newStreak)
         preferencesManager.setString(Constants.PREFS_LAST_STREAK_DATE, today.toString())
+        
+        val currentBest = dataStoreManager.bestStreak.first()
+        if (newStreak > currentBest) {
+            dataStoreManager.saveBestStreak(newStreak)
+        }
 
         // Calculate budget adherence percentage
         val budgetAdherencePercent = if (activeBudgets.isEmpty()) {

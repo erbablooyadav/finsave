@@ -3,6 +3,7 @@ package com.finsave.data.local.entity
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Fts4
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
@@ -74,6 +75,20 @@ data class TransactionEntity(
 
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
+)
+
+/**
+ * Room Entity: Transaction FTS
+ * Virtual table for full-text search on transaction merchant names and notes.
+ */
+@Entity(tableName = "transactions_fts")
+@Fts4(contentEntity = TransactionEntity::class)
+data class TransactionFtsEntity(
+    @ColumnInfo(name = "merchant_name")
+    val merchantName: String,
+    
+    @ColumnInfo(name = "note")
+    val note: String
 )
 
 /**
@@ -323,4 +338,26 @@ data class SplitterExpenseSplitEntity(
 
     @ColumnInfo(name = "amount_paise")
     val amountPaise: Long
+)
+
+/**
+ * Room Entity: Analytics Event
+ * Stores user actions locally for funnel tracking and crash reporting.
+ */
+@Entity(
+    tableName = "analytics_events",
+    indices = [Index(value = ["timestamp"])]
+)
+data class AnalyticsEventEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+
+    @ColumnInfo(name = "event_name")
+    val eventName: String,
+
+    @ColumnInfo(name = "properties_json")
+    val propertiesJson: String? = null, // JSON string for extra data
+
+    @ColumnInfo(name = "timestamp")
+    val timestamp: Long = System.currentTimeMillis()
 )

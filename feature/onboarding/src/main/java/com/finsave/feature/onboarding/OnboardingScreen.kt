@@ -110,7 +110,7 @@ fun OnboardingScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        snackbarHost = { com.finsave.core.ui.components.FinSaveSnackbar(snackbarHostState) },
         bottomBar = {
             // Only show pager indicator if not on the first screen
             AnimatedVisibility(

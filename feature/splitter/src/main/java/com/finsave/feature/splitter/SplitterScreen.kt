@@ -43,6 +43,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.finsave.core.ui.components.EmptyStateView
+import com.finsave.core.ui.R
 import com.finsave.core.ui.theme.LocalSpacing
 import com.finsave.domain.model.SplitterGroup
 
@@ -88,23 +90,13 @@ fun SplitterScreen(
 
             if (activeGroups.isEmpty() && settledGroups.isEmpty()) {
                 item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = spacing.huge),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "No active groups",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Tap the + button to create a group",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    EmptyStateView(
+                        vectorRes = R.drawable.ic_empty_splitter,
+                        title = "No groups yet",
+                        body = "Create a group to split expenses with friends or family",
+                        ctaText = "Create a Group",
+                        onCtaClick = { showCreateDialog = true }
+                    )
                 }
             } else {
                 if (activeGroups.isNotEmpty()) {

@@ -3,6 +3,7 @@ package com.finsave.core.common.notifications
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -88,14 +89,15 @@ object NotificationHelper {
      * @param spentPaise    Total amount spent today in paise
      * @param txCount       Number of debit transactions today
      */
-    fun postDailyDigest(context: Context, spentPaise: Long, txCount: Int) {
+    fun postDailyDigest(context: Context, spentPaise: Long, txCount: Int, pendingIntent: PendingIntent? = null) {
         if (!hasPermission(context)) return
         val formatted = IndianNumberFormatter.format(spentPaise)
         notify(
             context,
             NOTIFICATION_CHANNEL_DAILY,
             DAILY_DIGEST_ID,
-            "Today's spending: $formatted across $txCount transactions"
+            "Today's spending: $formatted across $txCount transactions",
+            pendingIntent
         )
     }
 
@@ -143,13 +145,23 @@ object NotificationHelper {
      * Builds and posts a notification with the given channel, ID, and message.
      */
     @Suppress("MissingPermission") // Permission is checked by caller (hasPermission guard)
-    private fun notify(context: Context, channelId: String, id: Int, message: String) {
-        val notification = NotificationCompat.Builder(context, channelId)
+    private fun notify(
+        context: Context,
+        channelId: String,
+        id: Int,
+        message: String,
+        pendingIntent: PendingIntent? = null
+    ) {
+        val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(NOTIFICATION_TITLE)
             .setContentText(message)
             .setAutoCancel(true)
-            .build()
-        NotificationManagerCompat.from(context).notify(id, notification)
+        
+        if (pendingIntent != null) {
+            builder.setContentIntent(pendingIntent)
+        }
+        
+        NotificationManagerCompat.from(context).notify(id, builder.build())
     }
 }

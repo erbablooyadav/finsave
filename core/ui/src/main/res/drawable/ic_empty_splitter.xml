@@ -1,0 +1,46 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    <!-- Person 1 (left) head -->
+    <path
+        android:pathData="M38,30 m-13,0 a13,13 0 1,0 26,0 a13,13 0 1,0 -26,0"
+        android:strokeColor="#000000"
+        android:strokeWidth="4"
+        android:fillColor="#00000000"/>
+    <!-- Person 1 body -->
+    <path
+        android:pathData="M18,75 C18,58 58,58 58,75 L58,90 L18,90 Z"
+        android:strokeColor="#000000"
+        android:strokeWidth="4"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+    <!-- Person 2 (right) head -->
+    <path
+        android:pathData="M82,30 m-13,0 a13,13 0 1,0 26,0 a13,13 0 1,0 -26,0"
+        android:strokeColor="#000000"
+        android:strokeWidth="4"
+        android:fillColor="#00000000"/>
+    <!-- Person 2 body -->
+    <path
+        android:pathData="M62,75 C62,58 102,58 102,75 L102,90 L62,90 Z"
+        android:strokeColor="#000000"
+        android:strokeWidth="4"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+    <!-- Divide symbol between persons -->
+    <path
+        android:pathData="M55,48 L65,48 M60,43 L60,43 M60,53 L60,53"
+        android:strokeColor="#000000"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M60,40 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"
+        android:fillColor="#000000"/>
+    <path
+        android:pathData="M60,56 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"
+        android:fillColor="#000000"/>
+</vector>

@@ -34,16 +34,18 @@ class FinSaveApplication : Application(), Configuration.Provider {
     lateinit var workerFactory: HiltWorkerFactory
     
     @Inject
-    lateinit var syncManager: com.finsave.domain.usecase.sync.SyncManager
+    lateinit var syncManager: dagger.Lazy<com.finsave.domain.usecase.sync.SyncManager>
 
     @Inject
-    lateinit var accountRepository: com.finsave.domain.repository.AccountRepository
+    lateinit var accountRepository: dagger.Lazy<com.finsave.domain.repository.AccountRepository>
 
     @Inject
-    lateinit var categoryRepository: com.finsave.domain.repository.CategoryRepository
+    lateinit var categoryRepository: dagger.Lazy<com.finsave.domain.repository.CategoryRepository>
 
     @Inject
-    lateinit var bankPatternConfigProvider: BankPatternConfigProvider
+    lateinit var bankPatternConfigProvider: dagger.Lazy<BankPatternConfigProvider>
+
+    private val applicationScope = CoroutineScope(Dispatchers.Default)
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -51,31 +53,51 @@ class FinSaveApplication : Application(), Configuration.Provider {
             .build()
 
     override fun onCreate() {
+        val startTime = System.currentTimeMillis()
         super.onCreate()
+        
+        // 1. Mandatory Main Thread Work
         NotificationHelper.createChannels(this)
         
-        // Initialize default database records if missing
-        CoroutineScope(Dispatchers.IO).launch {
-            val accounts = accountRepository.getAllAccounts().firstOrNull()
+        // 2. Deferred Background Work
+        applicationScope.launch(Dispatchers.IO) {
+            val ioStartTime = System.currentTimeMillis()
+            
+            // Initialize default database records if missing (Lazy access triggers DB init on IO thread)
+            val accounts = accountRepository.get().getAllAccounts().firstOrNull()
             if (accounts.isNullOrEmpty()) {
-                accountRepository.insertDefaultAccounts()
+                accountRepository.get().insertDefaultAccounts()
             }
             
-            val categories = categoryRepository.getAllCategories().firstOrNull()
+            val categories = categoryRepository.get().getAllCategories().firstOrNull()
             if (categories.isNullOrEmpty()) {
-                categoryRepository.insertDefaultCategories()
+                categoryRepository.get().insertDefaultCategories()
+            }
+            
+            // Warm BankPatternConfig cache
+            bankPatternConfigProvider.get().warmCache()
+            
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("FinSaveStartup", "Background IO init completed in ${System.currentTimeMillis() - ioStartTime}ms")
             }
         }
         
-        // Start SMS sync on app launch
-        syncManager.startPeriodicSync()
-        
-        scheduleDailyDigest()
-        scheduleSplitterReminder()
+        applicationScope.launch(Dispatchers.Default) {
+            val workStartTime = System.currentTimeMillis()
+            
+            // Start SMS sync on app launch
+            syncManager.get().startPeriodicSync()
+            
+            scheduleDailyDigest()
+            scheduleSplitterReminder()
+            
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("FinSaveStartup", "WorkManager scheduling completed in ${System.currentTimeMillis() - workStartTime}ms")
+            }
+        }
 
-        // Warm BankPatternConfig cache in background to avoid first worker runBlocking asset load.
-        CoroutineScope(Dispatchers.IO).launch {
-            bankPatternConfigProvider.warmCache()
+        if (BuildConfig.DEBUG) {
+            android.util.Log.d("FinSaveStartup", "onCreate completed in ${System.currentTimeMillis() - startTime}ms")
         }
     }
 

@@ -22,6 +22,11 @@ class DataStoreManager @Inject constructor(
         prefs[intPreferencesKey(Constants.PREFS_BUDGET_STREAK_COUNT)] ?: 0
     }
 
+    val bestStreak: Flow<Int> = dataStore.data.map { prefs ->
+        prefs[intPreferencesKey(Constants.PREFS_BEST_BUDGET_STREAK_COUNT)] ?: 0
+    }
+
+
     suspend fun saveScore(score: Int) {
         dataStore.edit { prefs ->
             prefs[intPreferencesKey(Constants.PREFS_FINSAVE_SCORE)] = score
@@ -31,6 +36,12 @@ class DataStoreManager @Inject constructor(
     suspend fun saveStreak(streak: Int) {
         dataStore.edit { prefs ->
             prefs[intPreferencesKey(Constants.PREFS_BUDGET_STREAK_COUNT)] = streak
+        }
+    }
+
+    suspend fun saveBestStreak(streak: Int) {
+        dataStore.edit { prefs ->
+            prefs[intPreferencesKey(Constants.PREFS_BEST_BUDGET_STREAK_COUNT)] = streak
         }
     }
 }

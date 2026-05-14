@@ -19,6 +19,7 @@ import java.time.LocalDate
  */
 interface TransactionRepository {
     fun getAllTransactions(): Flow<List<Transaction>>
+    fun getTransactionCount(): Flow<Int>
     fun getTransactionsByDateRange(startDate: LocalDate, endDate: LocalDate): Flow<List<Transaction>>
     fun getTransactionsByCategory(categoryId: Long): Flow<List<Transaction>>
     fun getTransactionsByAccount(accountId: Long): Flow<List<Transaction>>
@@ -44,6 +45,7 @@ interface CategoryRepository {
     suspend fun updateCategory(category: Category)
     suspend fun deleteCategory(id: Long)
     suspend fun insertDefaultCategories()
+    suspend fun getAutoCategoryMappings(): Map<String, String>
 }
 
 /**

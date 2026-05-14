@@ -28,6 +28,8 @@ class TransactionRepositoryImpl @Inject constructor(
             entities.map { it.toDomain() }
         }
 
+    override fun getTransactionCount(): Flow<Int> = transactionDao.getTransactionCount()
+
     override fun getTransactionsByDateRange(
         startDate: LocalDate,
         endDate: LocalDate
@@ -53,8 +55,15 @@ class TransactionRepositoryImpl @Inject constructor(
             .map { entities -> entities.map { it.toDomain() } }
 
     override fun searchTransactions(query: String): Flow<List<Transaction>> =
-        transactionDao.searchTransactions(query)
-            .map { entities -> entities.map { it.toDomain() } }
+        if (query.length >= 2) {
+            // Use FTS for better performance on longer queries
+            transactionDao.searchTransactionsFts("$query*")
+                .map { entities -> entities.map { it.toDomain() } }
+        } else {
+            // Fallback to LIKE for single character or empty queries
+            transactionDao.searchTransactions(query)
+                .map { entities -> entities.map { it.toDomain() } }
+        }
 
     override fun getTotalByTypeAndDateRange(
         type: TransactionType,

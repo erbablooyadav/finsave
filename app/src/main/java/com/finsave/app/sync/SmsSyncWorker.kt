@@ -147,6 +147,11 @@ class SmsSyncWorker @AssistedInject constructor(
             Log.i(TAG, "SMS sync done — imported=$imported, duplicates=$skippedDuplicate, no-parse=$skippedNoParse")
             publishProgress(total = rawMessages.size, parsed = parsed, imported = imported)
 
+            // Increment unseen count for bottom nav badge (E1.7)
+            if (imported > 0) {
+                preferencesManager.incrementUnseenSmsCount(imported)
+            }
+
             // Persist the sync completion time so the next run only fetches new SMS.
             preferencesManager.setLong(Constants.PREFS_LAST_SMS_SYNC_TIMESTAMP, System.currentTimeMillis())
 

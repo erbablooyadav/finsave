@@ -3,6 +3,7 @@ package com.finsave.feature.splitter
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.finsave.core.common.Constants
 import com.finsave.core.common.upi.UpiUriBuilder
 import com.finsave.domain.model.MemberBalance
 import com.finsave.domain.model.SimplifiedDebt
@@ -17,10 +18,14 @@ import com.finsave.domain.usecase.splitter.AddMemberUseCase
 import com.finsave.domain.usecase.splitter.CalculateMemberBalancesUseCase
 import com.finsave.domain.usecase.splitter.RemoveMemberUseCase
 import com.finsave.domain.usecase.splitter.SimplifyDebtsUseCase
+import com.finsave.core.common.formatter.IndianNumberFormatter
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -252,6 +257,89 @@ class GroupDetailViewModel @Inject constructor(
 
     fun onClearError() {
         _errorMessage.value = null
+    }
+
+    // ── E2.1: WhatsApp Balance Share ────────────────────────────
+
+    private val _shareText = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val shareText: SharedFlow<String> = _shareText.asSharedFlow()
+
+    /**
+     * Builds a formatted balance summary and emits it via [shareText].
+     * @param playStoreLink Play Store URL from strings.xml
+     */
+    fun onShareBalance(playStoreLink: String) {
+        val groupName = group.value?.name ?: "Group"
+        val balances = memberBalances.value
+        if (balances.isEmpty()) return
+
+        val sb = StringBuilder()
+        sb.appendLine("FinSave — $groupName")
+        sb.appendLine()
+
+        balances.forEach { balance ->
+            val name = balance.member.name
+            val net = balance.netBalancePaise
+            when {
+                net > 0 -> sb.appendLine("$name gets back: ${IndianNumberFormatter.format(net)}")
+                net < 0 -> sb.appendLine("$name owes: ${IndianNumberFormatter.format(-net)}")
+                else -> sb.appendLine("$name — settled up ✅")
+            }
+        }
+
+        // Simplified debts summary
+        val debts = simplifiedDebts.value
+        if (debts.isNotEmpty()) {
+            sb.appendLine()
+            sb.appendLine("To settle:")
+            debts.forEach { debt ->
+                sb.appendLine("${debt.fromMember.name} → ${debt.toMember.name}: ${IndianNumberFormatter.format(debt.amountPaise)}")
+            }
+        }
+
+        sb.appendLine()
+        sb.appendLine("Track expenses for free — no internet, 100% private:")
+        sb.appendLine(playStoreLink)
+
+        _shareText.tryEmit(sb.toString())
+    }
+
+    // ── E2.3: Settlement Confetti + Share ────────────────────────
+
+    private val _isConfettiVisible = MutableStateFlow(false)
+    val isConfettiVisible: StateFlow<Boolean> = _isConfettiVisible.asStateFlow()
+
+    private val _showShareButtons = MutableStateFlow(false)
+    val showShareButtons: StateFlow<Boolean> = _showShareButtons.asStateFlow()
+
+    /**
+     * Called after confetti finishes playing (2s delay in LaunchedEffect).
+     * Hides confetti and shows Share/Done buttons.
+     */
+    fun onConfettiFinished() {
+        _isConfettiVisible.value = false
+        _showShareButtons.value = true
+    }
+
+    /**
+     * Triggers confetti overlay after a successful settlement.
+     */
+    fun showConfetti() {
+        _isConfettiVisible.value = true
+        _showShareButtons.value = false
+    }
+
+    /**
+     * Emits a "We're Settled!" share message via [shareText].
+     */
+    fun onShareSettlement() {
+        val groupName = group.value?.name ?: "Group"
+        val text = buildString {
+            appendLine("$groupName — all settled! 🎉")
+            appendLine("We used FinSave to split our bills — no internet, 100% private.")
+            appendLine("Try it free: ${Constants.PLAY_STORE_LINK}")
+        }
+        _shareText.tryEmit(text)
     }
 }
 

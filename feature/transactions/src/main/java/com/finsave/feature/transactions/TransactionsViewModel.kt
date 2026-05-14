@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.finsave.domain.model.Transaction
 import com.finsave.domain.model.TransactionType
+import com.finsave.domain.model.Category
+import com.finsave.domain.repository.CategoryRepository
+import com.finsave.domain.usecase.transaction.AddTransactionUseCase
 import com.finsave.domain.usecase.transaction.DeleteTransactionUseCase
 import com.finsave.domain.usecase.transaction.GetTransactionsUseCase
 import com.finsave.domain.usecase.transaction.UpdateTransactionUseCase
@@ -23,7 +26,9 @@ import javax.inject.Inject
 class TransactionsViewModel @Inject constructor(
     private val getTransactions: GetTransactionsUseCase,
     private val updateTransaction: UpdateTransactionUseCase,
-    private val deleteTransaction: DeleteTransactionUseCase
+    private val deleteTransaction: DeleteTransactionUseCase,
+    private val addTransaction: AddTransactionUseCase,
+    private val categoryRepository: CategoryRepository
 ) : ViewModel() {
 
     private val _filterState = MutableStateFlow(TransactionFilterState())
@@ -37,6 +42,18 @@ class TransactionsViewModel @Inject constructor(
 
     private val _deleteConfirmation = MutableStateFlow<Transaction?>(null)
     val deleteConfirmation: StateFlow<Transaction?> = _deleteConfirmation.asStateFlow()
+
+    // Category map for UI display
+    val categories: StateFlow<Map<Long, Category>> = categoryRepository.getAllCategories()
+        .map { list -> list.associateBy { it.id } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    // Snackbar events for undo support
+    private val _snackbarMessage = MutableSharedFlow<SnackbarEvent>()
+    val snackbarMessage: SharedFlow<SnackbarEvent> = _snackbarMessage.asSharedFlow()
+
+    // Last deleted transaction for undo
+    private var lastDeletedTransaction: Transaction? = null
 
     private val debouncedFilterState = _filterState
         .debounce(300)
@@ -220,7 +237,15 @@ class TransactionsViewModel @Inject constructor(
         viewModelScope.launch {
             deleteTransaction(transaction.id).fold(
                 onSuccess = {
+                    lastDeletedTransaction = transaction
                     _deleteConfirmation.value = null
+                    _snackbarMessage.emit(
+                        SnackbarEvent(
+                            message = "Transaction deleted",
+                            actionLabel = "Undo",
+                            onAction = { undoDelete() }
+                        )
+                    )
                 },
                 onFailure = { error ->
                     _errorMessage.value = error.message ?: "Failed to delete transaction"
@@ -230,7 +255,50 @@ class TransactionsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Swipe-to-delete: deletes immediately and shows undo snackbar.
+     */
+    fun onSwipeDelete(transaction: Transaction) {
+        viewModelScope.launch {
+            deleteTransaction(transaction.id).fold(
+                onSuccess = {
+                    lastDeletedTransaction = transaction
+                    _snackbarMessage.emit(
+                        SnackbarEvent(
+                            message = "Transaction deleted",
+                            actionLabel = "Undo",
+                            onAction = { undoDelete() }
+                        )
+                    )
+                },
+                onFailure = { error ->
+                    _errorMessage.value = error.message ?: "Failed to delete transaction"
+                }
+            )
+        }
+    }
+
+    /**
+     * Re-inserts the last deleted transaction.
+     */
+    fun undoDelete() {
+        val transaction = lastDeletedTransaction ?: return
+        viewModelScope.launch {
+            addTransaction(transaction)
+            lastDeletedTransaction = null
+        }
+    }
+
     fun onClearError() {
         _errorMessage.value = null
     }
 }
+
+/**
+ * Snackbar event with optional undo action.
+ */
+data class SnackbarEvent(
+    val message: String,
+    val actionLabel: String? = null,
+    val onAction: (() -> Unit)? = null
+)

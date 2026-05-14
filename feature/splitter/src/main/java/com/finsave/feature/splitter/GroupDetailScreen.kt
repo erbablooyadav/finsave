@@ -3,7 +3,9 @@ package com.finsave.feature.splitter
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -14,12 +16,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -28,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.finsave.core.common.Constants
 import com.finsave.core.common.formatter.IndianNumberFormatter
 import com.finsave.core.ui.components.FinSaveCard
 import com.finsave.core.ui.theme.LocalSpacing
@@ -35,10 +38,7 @@ import com.finsave.domain.model.MemberBalance
 import com.finsave.domain.model.SimplifiedDebt
 import com.finsave.domain.model.SplitterExpense
 import com.finsave.domain.model.SplitterMember
-import com.airbnb.lottie.compose.LottieAnimation
-import com.airbnb.lottie.compose.LottieCompositionSpec
-import com.airbnb.lottie.compose.animateLottieCompositionAsState
-import com.airbnb.lottie.compose.rememberLottieComposition
+import com.finsave.core.ui.components.ConfettiOverlay
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
@@ -79,17 +79,16 @@ fun GroupDetailScreen(
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var showSettleConfirmation by remember { mutableStateOf(false) }
-    var showSettledOverlay by remember { mutableStateOf(false) }
-    val settledOverlayAlpha by animateFloatAsState(
-        targetValue = if (showSettledOverlay) 1f else 0f,
-        animationSpec = tween(durationMillis = 250),
-        label = "settledOverlayAlpha"
-    )
 
-    LaunchedEffect(showSettledOverlay) {
-        if (showSettledOverlay) {
+    // E2.3: Confetti state from ViewModel
+    val isConfettiVisible by viewModel.isConfettiVisible.collectAsStateWithLifecycle()
+    val showShareButtons by viewModel.showShareButtons.collectAsStateWithLifecycle()
+
+    // Auto-dismiss confetti after 2s, then show share buttons
+    LaunchedEffect(isConfettiVisible) {
+        if (isConfettiVisible) {
             delay(2_000)
-            onNavigateBack()
+            viewModel.onConfettiFinished()
         }
     }
 
@@ -99,6 +98,25 @@ fun GroupDetailScreen(
         errorMessage?.let { message ->
             snackbarHostState.showSnackbar(message)
             viewModel.onClearError()
+        }
+    }
+
+    // E2.1: Collect share text and launch WhatsApp / general share sheet
+    LaunchedEffect(Unit) {
+        viewModel.shareText.collect { text ->
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+                setPackage("com.whatsapp")
+            }
+            try {
+                context.startActivity(intent)
+            } catch (e: ActivityNotFoundException) {
+                // WhatsApp not installed — fall back to general chooser
+                context.startActivity(Intent.createChooser(
+                    intent.apply { `package` = null }, "Share via"
+                ))
+            }
         }
     }
 
@@ -137,7 +155,7 @@ fun GroupDetailScreen(
                 )
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { com.finsave.core.ui.components.FinSaveSnackbar(snackbarHostState) }
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -170,6 +188,9 @@ fun GroupDetailScreen(
                         isSettled = isSettled,
                         onRemoveMember = { viewModel.onRemoveMemberClick(it) },
                         onSettleGroup = { showSettleConfirmation = true },
+                        onShareBalance = {
+                            viewModel.onShareBalance(Constants.PLAY_STORE_LINK)
+                        },
                         onSettleViaUpi = { debt ->
                             val uri = viewModel.buildUpiUri(debt, group?.name ?: "")
                             if (uri == null) {
@@ -195,40 +216,57 @@ fun GroupDetailScreen(
                 }
             }
 
-           if (showSettledOverlay) {
-                val confettiComposition by rememberLottieComposition(
-                    LottieCompositionSpec.RawRes(R.raw.confetti)
-                )
-                val confettiProgress by animateLottieCompositionAsState(
-                    composition = confettiComposition,
-                    iterations = 1
-                )
+            // E2.3: Confetti overlay
+            ConfettiOverlay(
+                visible = isConfettiVisible
+            )
 
+
+            // E2.3: Post-confetti Share + Done buttons
+            AnimatedVisibility(
+                visible = showShareButtons,
+                enter = fadeIn(animationSpec = tween(300))
+            ) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.45f * settledOverlayAlpha))
-                        .alpha(settledOverlayAlpha),
+                        .background(Color.Black.copy(alpha = 0.65f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    LottieAnimation(
-                        composition = confettiComposition,
-                        progress = { confettiProgress },
-                        modifier = Modifier.fillMaxSize()
-                    )
-
-                    Surface(
-                        shape = MaterialTheme.shapes.large,
-                        color = Color(0xFF16A34A),
-                        tonalElevation = 8.dp
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Text(
-                            text = "All Settled!",
-                            modifier = Modifier.padding(horizontal = 32.dp, vertical = 24.dp),
-                            style = MaterialTheme.typography.headlineSmall,
+                            text = "🎉 All Settled!",
+                            style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
+                        Text(
+                            text = group?.name ?: "",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = { viewModel.onShareSettlement() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF16A34A),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Share 🎉")
+                        }
+                        OutlinedButton(
+                            onClick = onNavigateBack,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White)
+                        ) {
+                            Text("Done")
+                        }
                     }
                 }
             }
@@ -277,7 +315,7 @@ fun GroupDetailScreen(
                     onClick = {
                         showSettleConfirmation = false
                         viewModel.settleGroup()
-                        showSettledOverlay = true
+                        viewModel.showConfetti()
                     }
                 ) {
                     Text("Settle")
@@ -306,6 +344,7 @@ private fun MembersTab(
     isSettled: Boolean,
     onRemoveMember: (SplitterMember) -> Unit,
     onSettleGroup: () -> Unit,
+    onShareBalance: () -> Unit,
     onSettleViaUpi: (SimplifiedDebt) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -376,6 +415,26 @@ private fun MembersTab(
                     member = member,
                     onRemove = { onRemoveMember(member) }
                 )
+            }
+        }
+
+        // Share Balance button (visible when group has ≥ 2 members)
+        if (members.size >= 2) {
+            item {
+                FilledTonalButton(
+                    onClick = onShareBalance,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = spacing.small)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(spacing.small))
+                    Text("Share Balance")
+                }
             }
         }
 

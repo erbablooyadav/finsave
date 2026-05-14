@@ -1,4 +1,4 @@
-﻿plugins {
+plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
@@ -42,6 +42,11 @@ dependencies {
     implementation(libs.compose.navigation)
     implementation(libs.compose.animation)
     implementation(libs.compose.foundation)
+    
+    // Vico
+    implementation(libs.vico.compose)
+    implementation(libs.vico.compose.m3)
+
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.hilt.android)

@@ -79,7 +79,7 @@ fun AccountScreen(
                 Icon(Icons.Default.Add, contentDescription = "Add Account")
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { com.finsave.core.ui.components.FinSaveSnackbar(snackbarHostState) }
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier

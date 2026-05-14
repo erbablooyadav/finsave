@@ -10,7 +10,7 @@ object Constants {
 
     // ── Database ───────────────────────────────────────────────────
     const val DATABASE_NAME = "finsave_database"
-    const val DATABASE_VERSION = 1
+    const val DATABASE_VERSION = 3
 
     // ── Preferences ────────────────────────────────────────────────
     const val PREFS_NAME = "finsave_prefs"
@@ -22,12 +22,17 @@ object Constants {
     const val PREFS_AUTO_LOCK_TIMEOUT = "auto_lock_timeout_seconds"
     const val PREFS_LAST_PAUSED_AT = "last_paused_at_millis"
     const val PREFS_BUDGET_STREAK_COUNT = "budget_streak_count"
+    const val PREFS_BEST_BUDGET_STREAK_COUNT = "best_budget_streak_count"
     const val PREFS_LAST_STREAK_DATE = "last_streak_date"
+    const val PREFS_LAST_STREAK_BROKEN_DATE = "last_streak_broken_date"
     const val PREFS_FINSAVE_SCORE = "finsave_score"
     const val PREFS_LAST_SMS_IMPORT_COMPLETION_ID = "last_sms_import_completion_id"
     const val PREFS_LAST_SMS_SYNC_TIMESTAMP = "last_sms_sync_timestamp_millis"
+    const val PREFS_UNSEEN_SMS_COUNT = "unseen_sms_import_count"
     const val PREFS_DB_ENCRYPTED_V1 = "db_encrypted_v1"
     const val PREFS_DB_PASSPHRASE_IV = "db_passphrase_iv_b64"
+    const val PREFS_HAS_SHOWN_FIRST_TX_CONFETTI = "has_shown_first_tx_confetti"
+    const val PREFS_LAST_VERSION_CODE = "last_version_code"
 
     // ── SMS Parsing ────────────────────────────────────────────────
     const val BANK_PATTERNS_ASSET = "bank_patterns.json"
@@ -58,6 +63,9 @@ object Constants {
     const val CSV_BOM = "\uFEFF" // UTF-8 BOM for Excel compatibility
     const val CSV_MIME_TYPE = "text/csv"
     const val PDF_MIME_TYPE = "application/pdf"
+
+    // ── Share / Viral ──────────────────────────────────────────────
+    const val PLAY_STORE_LINK = "https://play.google.com/store/apps/details?id=com.finsave.app"
 
     // ── Navigation Routes ──────────────────────────────────────────
     object Routes {

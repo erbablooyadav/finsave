@@ -1,6 +1,7 @@
 package com.finsave.feature.dashboard
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -11,7 +12,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,16 +25,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finsave.core.common.formatter.IndianNumberFormatter
+import com.finsave.core.ui.components.AnimatedSpendHeaderCard
+import com.finsave.core.ui.components.ConfettiOverlay
+import com.finsave.core.ui.components.DashboardSkeleton
 import com.finsave.core.ui.components.FinSaveCard
-import com.finsave.core.ui.components.GradientHeaderCard
-import com.finsave.core.ui.theme.Indigo600
-import com.finsave.core.ui.theme.Indigo800
+import com.finsave.core.ui.components.StreakCard
 import com.finsave.core.ui.theme.LocalSpacing
 import com.finsave.domain.model.Transaction
 import com.finsave.domain.model.TransactionType
@@ -58,11 +61,29 @@ fun DashboardScreen(
     val hasTotalBudget by viewModel.hasTotalBudget.collectAsState()
     val finSaveScore by viewModel.finSaveScore.collectAsState()
     val budgetStreakCount by viewModel.budgetStreakCount.collectAsState()
+    val totalBudgetPaise by viewModel.totalBudgetPaise.collectAsState()
+    val daysRemaining by viewModel.daysRemaining.collectAsState()
     val smsImportProgress by viewModel.smsImportProgress.collectAsState()
     val smsImportCompletion by viewModel.smsImportCompletion.collectAsState()
+    val bestStreak by viewModel.bestStreak.collectAsState()
+    val isStreakBroken by viewModel.isStreakBroken.collectAsState()
+    val showFirstTransactionConfetti by viewModel.showFirstTransactionConfetti.collectAsState()
     val spacing = LocalSpacing.current
     val snackbarHostState = remember { SnackbarHostState() }
     var lastShownCompletionId by rememberSaveable { mutableStateOf("") }
+
+    // Loading detection: show skeleton until first real data arrives
+    var isLoading by remember { mutableStateOf(true) }
+    LaunchedEffect(recentTransactions, totalSpendPaise) {
+        if (recentTransactions.isNotEmpty() || totalSpendPaise != 0L) {
+            isLoading = false
+        }
+    }
+    // Auto-dismiss loading after a short timeout to handle empty-data case
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(800)
+        isLoading = false
+    }
 
     LaunchedEffect(smsImportCompletion?.workId) {
         val completion = smsImportCompletion ?: return@LaunchedEffect
@@ -75,9 +96,16 @@ fun DashboardScreen(
         }
     }
 
+    LaunchedEffect(showFirstTransactionConfetti) {
+        if (showFirstTransactionConfetti) {
+            kotlinx.coroutines.delay(4000)
+            viewModel.markConfettiShown()
+        }
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        snackbarHost = { com.finsave.core.ui.components.FinSaveSnackbar(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddTransactionClick,
@@ -88,6 +116,17 @@ fun DashboardScreen(
             }
         }
     ) { paddingValues ->
+        Crossfade(
+            targetState = isLoading,
+            label = "dashboardLoading"
+        ) { loading ->
+            if (loading) {
+                DashboardSkeleton(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                )
+            } else {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -98,63 +137,25 @@ fun DashboardScreen(
             item {
                 Spacer(modifier = Modifier.height(spacing.medium))
 
-                GradientHeaderCard(
-                    gradientColors = listOf(Indigo600, Indigo800)
-                ) {
-                    Column {
-                        Text(
-                            text = "Spent this month",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                        Spacer(modifier = Modifier.height(spacing.extraSmall))
-                        Text(
-                            text = IndianNumberFormatter.format(
-                                paiseAmount = totalSpendPaise,
-                                useIndianSystem = useIndianSystem,
-                                showPaise = true,
-                                showSymbol = true
-                            ),
-                            style = MaterialTheme.typography.displaySmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            modifier = Modifier.semantics {
-                                contentDescription = IndianNumberFormatter.formatForAccessibility(totalSpendPaise)
-                            }
-                        )
-                        Spacer(modifier = Modifier.height(spacing.medium))
-                        
-                        // Days remaining banner
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White.copy(alpha = 0.15f))
-                                .padding(spacing.small),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Info,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(spacing.small))
-                            Text(
-                                text = "${viewModel.daysRemaining} days left in month",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-                }
+                AnimatedSpendHeaderCard(
+                    totalSpentPaise = totalSpendPaise,
+                    totalBudgetPaise = totalBudgetPaise,
+                    daysRemaining = daysRemaining,
+                    hasTotalBudget = hasTotalBudget,
+                    useIndianSystem = useIndianSystem
+                )
             }
 
             item {
-                FinSaveScoreCard(
-                    score = if (hasTotalBudget) finSaveScore else null,
-                    streakCount = if (hasTotalBudget) budgetStreakCount else null
+                val haptic = LocalHapticFeedback.current
+                StreakCard(
+                    streakCount = if (hasTotalBudget) budgetStreakCount else 0,
+                    bestStreak = bestStreak,
+                    isStreakBroken = isStreakBroken,
+                    score = if (hasTotalBudget) finSaveScore else 0,
+                    modifier = Modifier.clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    }
                 )
             }
 
@@ -190,10 +191,9 @@ fun DashboardScreen(
                         Spacer(modifier = Modifier.height(spacing.medium))
                         
                         if (recentTransactions.isEmpty()) {
-                            Text(
-                                text = "Your transactions will appear here",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            com.finsave.core.ui.components.EmptyState(
+                                message = "No transactions yet. Start your journey by adding one!",
+                                icon = androidx.compose.material.icons.Icons.Default.Add
                             )
                         }
                     }
@@ -213,6 +213,12 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.height(spacing.huge))
             }
         }
+            } // else
+        } // Crossfade
+
+        ConfettiOverlay(
+            visible = showFirstTransactionConfetti
+        )
     }
 }
 
@@ -232,7 +238,9 @@ private fun SmsImportProgressCard(
                 progress = {
                     if (progress.total <= 0) 0f else progress.parsed.toFloat() / progress.total.toFloat()
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().semantics {
+                    contentDescription = "Importing SMS: ${((if (progress.total <= 0) 0f else progress.parsed.toFloat() / progress.total.toFloat()) * 100).toInt()}% complete"
+                }
             )
             Text(
                 text = "Parsed: ${progress.parsed}/${progress.total}  •  Imported: ${progress.imported}",
@@ -311,90 +319,4 @@ fun TransactionItem(
     }
 }
 
-@Composable
-fun FinSaveScoreCard(
-    score: Int?,
-    streakCount: Int?
-) {
-    val spacing = LocalSpacing.current
-    
-    FinSaveCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            // FinSave Score
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "FinSave Score",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(spacing.extraSmall))
-                Text(
-                    text = score?.toString() ?: "—",
-                    style = MaterialTheme.typography.displayMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                if (score != null) {
-                    Text(
-                        text = "out of 100",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            
-            // Divider
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(80.dp)
-                    .background(MaterialTheme.colorScheme.outlineVariant)
-            )
-            
-            // Budget Streak
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Budget Streak",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(spacing.extraSmall))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    if (streakCount != null && streakCount >= 3) {
-                        Text(
-                            text = "🔥",
-                            style = MaterialTheme.typography.displayMedium
-                        )
-                        Spacer(modifier = Modifier.width(spacing.extraSmall))
-                    }
-                    Text(
-                        text = streakCount?.toString() ?: "—",
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (streakCount != null && streakCount >= 3) 
-                            Color(0xFFFF6B35) else MaterialTheme.colorScheme.primary
-                    )
-                }
-                if (streakCount != null) {
-                    Text(
-                        text = if (streakCount == 1) "day" else "days",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-    }
-}
+// FinSaveScoreCard was removed and replaced by StreakCard in CommonComponents.kt
